@@ -4,94 +4,80 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>台電圖號截圖一鍵導航</title>
-  <!-- 引入 Proj4 坐標轉換庫與 Tesseract.js OCR 庫 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; background: #f4f5f7; }
-    h2 { margin-top: 0; font-size: 1.3rem; color: #1e293b; }
-    .upload-box { margin-bottom: 16px; background: #fff; padding: 14px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 14px; background: #f1f5f9; }
+    h3 { margin: 0 0 12px 0; color: #0f172a; }
+    .upload-card { background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 12px; }
     input[type="file"] { width: 100%; font-size: 1rem; }
     #status { margin-top: 8px; font-weight: bold; color: #2563eb; }
     
-    /* 截圖與標註區域 */
-    .img-wrapper { position: relative; width: 100%; overflow-x: auto; background: #000; border-radius: 12px; display: none; }
-    #display-img { display: block; width: 100%; max-width: 100%; height: auto; }
+    .img-wrapper { position: relative; width: 100%; background: #000; border-radius: 8px; display: none; overflow: hidden; }
+    #display-img { display: block; width: 100%; height: auto; }
     .overlay-btn {
       position: absolute;
-      background: rgba(37, 99, 235, 0.45);
-      border: 2px solid #2563eb;
+      background: rgba(37, 99, 235, 0.6);
+      border: 2px solid #60a5fa;
       border-radius: 4px;
       cursor: pointer;
       color: #fff;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
-      text-shadow: 0 1px 2px #000;
-      transition: all 0.2s;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
     }
-    .overlay-btn:active { background: rgba(37, 99, 235, 0.85); transform: scale(0.98); }
 
-    /* 案件核對清單 */
-    .list-section { margin-top: 16px; }
+    .list-section { margin-top: 14px; }
     .item-card {
       background: #fff;
       padding: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       border-radius: 8px;
-      border-left: 5px solid #2563eb;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      border-left: 6px solid #2563eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .coord-input { font-size: 1.1rem; font-family: monospace; font-weight: bold; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; width: 160px; }
+    .coord-input { font-size: 1.1rem; font-family: monospace; font-weight: bold; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 170px; }
     .nav-btn {
-      background: #059669;
+      background: #16a34a;
       color: #fff;
       text-decoration: none;
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: 6px;
       font-weight: bold;
       font-size: 0.95rem;
-      text-align: center;
       white-space: nowrap;
     }
-    .info-text { font-size: 0.85rem; color: #64748b; margin: 0; }
+    .info-text { font-size: 0.85rem; color: #64748b; margin: 4px 0 0 0; }
   </style>
 </head>
 <body>
 
-  <h2>⚡ 派工截圖・圖號快速辨識導航</h2>
-  
-  <div class="upload-box">
-    <label><b>📷 拍照或選擇螢幕截圖：</b></label><br><br>
+  <h3>⚡ 台電報工圖號・自動辨識導航</h3>
+
+  <div class="upload-card">
     <input type="file" id="file-input" accept="image/*">
-    <div id="status">請上傳電腦報工畫面截圖</div>
+    <div id="status">請上傳螢幕截圖或照片</div>
   </div>
 
-  <!-- 圖片與點選框 -->
   <div class="img-wrapper" id="img-container">
-    <img id="display-img" alt="報工截圖">
+    <img id="display-img">
   </div>
 
-  <!-- 核對清單 -->
   <div class="list-section" id="items-list"></div>
 
   <script>
-    // 1. 定義 TWD67 與 WGS84 座標系統投影
     proj4.defs([
       ['EPSG:3828', '+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=aust_SA +towgs84=-752,-358,-179,-.0000011698,.0000018398,.0000009822,.00002329 +units=m +no_defs'],
       ['EPSG:4326', '+proj=longlat +datum=WGS84 +no_defs']
     ]);
 
-    // 2. 台電圖號轉 TWD67 (X, Y)
     function taipowerToTWD67(code) {
-      code = code.toUpperCase().replace(/[\s\-_]/g, '');
+      code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length < 9) return null;
 
       const firstChar = code[0];
@@ -112,18 +98,14 @@
       const x_800 = parseInt(code.substring(1, 3), 10);
       const y_500 = parseInt(code.substring(3, 5), 10);
 
-      const subXChar = code[5];
-      const subYChar = code[6];
-      const subX = subXChar.charCodeAt(0) - 65; // A=0, B=1 ... H=7
-      const subY = subYChar.charCodeAt(0) - 65; // A=0 ... E=4
+      const subX = code[5].charCodeAt(0) - 65;
+      const subY = code[6].charCodeAt(0) - 65;
 
       let offsetX = 0, offsetY = 0;
       if (code.length >= 11) {
-        // 11 碼：公尺精度
         offsetX = parseInt(code.substring(7, 9), 10);
         offsetY = parseInt(code.substring(9, 11), 10);
       } else if (code.length >= 9) {
-        // 9 碼：十公尺精度
         offsetX = parseInt(code[7], 10) * 10;
         offsetY = parseInt(code[8], 10) * 10;
       }
@@ -133,14 +115,32 @@
       return [x, y];
     }
 
-    // 3. TWD67 轉 WGS84 經緯度
     function twd67ToWGS84(x, y) {
       const [lng, lat] = proj4('EPSG:3828', 'EPSG:4326', [x, y]);
       return { lat: lat.toFixed(6), lng: lng.toFixed(6) };
     }
 
-    // 4. 正則表達式抓取圖號（支援 9 碼或 11 碼）
-    const COORD_REGEX = /[A-HJ-NP-W][0-9]{4}[A-H][A-E](?:[0-9]{4}|[0-9]{2})/gi;
+    // 支援空格或無空格格式（例如 G4366 HD15、G4463 CA40、G4366DB76）
+    const COORD_REGEX = /[A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2})/gi;
+
+    // 圖片預處理：灰階 + 高對比化，去除螢幕波紋與背景色
+    function preprocessImage(imgElement) {
+      const canvas = document.createElement('canvas');
+      canvas.width = imgElement.naturalWidth;
+      canvas.height = imgElement.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgElement, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+        const contrast = gray > 140 ? 255 : 0; // 二值化加強字元邊緣
+        d[i] = d[i+1] = d[i+2] = contrast;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      return canvas;
+    }
 
     const fileInput = document.getElementById('file-input');
     const statusText = document.getElementById('status');
@@ -152,7 +152,7 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      statusText.innerText = "⏳ 載入圖片並辨識中...";
+      statusText.innerText = "⏳ 載入圖片中...";
       itemsList.innerHTML = "";
       document.querySelectorAll('.overlay-btn').forEach(el => el.remove());
 
@@ -162,37 +162,44 @@
 
       displayImg.onload = async () => {
         try {
-          // 執行 OCR
+          statusText.innerText = "🔍 強化影像特徵並進行 OCR 辨識...";
+          const processedCanvas = preprocessImage(displayImg);
+
           const worker = await Tesseract.createWorker('eng');
-          const ret = await worker.recognize(file);
+          // 設定白名單只關注英數字元與空白，排除中文字干擾
+          await worker.setParameters({
+            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
+          });
+          
+          const ret = await worker.recognize(processedCanvas);
           await worker.terminate();
 
-          const words = ret.data.words;
           const detectedItems = [];
-
-          words.forEach(w => {
-            const matches = w.text.match(COORD_REGEX);
+          
+          // 解析段落與行文字
+          ret.data.lines.forEach(line => {
+            const matches = line.text.match(COORD_REGEX);
             if (matches) {
               matches.forEach(m => {
                 detectedItems.push({
-                  code: m.toUpperCase(),
-                  bbox: w.bbox
+                  code: m.replace(/\s+/g, '').toUpperCase(),
+                  bbox: line.bbox
                 });
               });
             }
           });
 
           if (detectedItems.length === 0) {
-            statusText.innerText = "⚠️ 未直接抓到標準圖號格式，請確認清晰度或手動新增。";
+            statusText.innerText = "⚠️ 抓不到圖號，請稍微拉遠拍攝或手動在下方核對！";
             return;
           }
 
-          statusText.innerText = `✅ 辨識完成！共找到 ${detectedItems.length} 個圖號點位。`;
+          statusText.innerText = `✅ 成功辨識出 ${detectedItems.length} 筆圖號！`;
           renderResults(detectedItems);
 
         } catch (err) {
           console.error(err);
-          statusText.innerText = "❌ 辨識出錯，請重試。";
+          statusText.innerText = "❌ 辨識失敗，請重試。";
         }
       };
     });
@@ -202,25 +209,21 @@
       const imgHeight = displayImg.naturalHeight;
 
       items.forEach((item, index) => {
-        // 計算覆蓋在圖片上的百分比位置（響應式縮放也不跑版）
         const leftPercent = (item.bbox.x0 / imgWidth) * 100;
         const topPercent = (item.bbox.y0 / imgHeight) * 100;
         const widthPercent = ((item.bbox.x1 - item.bbox.x0) / imgWidth) * 100;
         const heightPercent = ((item.bbox.y1 - item.bbox.y0) / imgHeight) * 100;
 
-        // 在圖片上加入藍色透明按鈕
         const btn = document.createElement('div');
         btn.className = 'overlay-btn';
         btn.style.left = `${leftPercent}%`;
         btn.style.top = `${topPercent}%`;
-        btn.style.width = `${Math.max(widthPercent, 8)}%`;
-        btn.style.height = `${Math.max(heightPercent, 3)}%`;
+        btn.style.width = `${Math.max(widthPercent, 10)}%`;
+        btn.style.height = `${Math.max(heightPercent, 4)}%`;
         btn.innerText = `#${index + 1}`;
-        btn.title = `點擊導航: ${item.code}`;
 
         imgContainer.appendChild(btn);
 
-        // 下方核對卡片
         const card = document.createElement('div');
         card.className = 'item-card';
 
@@ -244,7 +247,7 @@
         card.innerHTML = `
           <div class="item-row">
             <div>
-              <b>案件 #${index + 1} 圖號：</b>
+              <b>#${index + 1} 圖號：</b>
               <input class="coord-input" type="text" value="${item.code}">
             </div>
             <a class="nav-btn" target="_blank">🚗 導航</a>
@@ -261,8 +264,6 @@
         });
 
         itemsList.appendChild(card);
-
-        // 初次計算
         updateItem(item.code);
       });
     }
