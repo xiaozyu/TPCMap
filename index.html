@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>⚡ 台電報工導航・日薪工數盤</title>
+  <title>⚡ 台電工單導航盤</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -14,15 +14,10 @@
       color: #f8fafc;
       padding-bottom: 60px;
     }
-
     h3 { margin: 0 0 10px 0; font-size: 1.15rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
 
-    /* 頂部純按鈕控制列 */
-    .top-action-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+    /* 頂部操作按鈕 */
+    .top-action-bar { display: flex; gap: 8px; margin-bottom: 8px; }
     .btn-paste {
       flex: 3;
       background: #2563eb;
@@ -33,11 +28,6 @@
       font-weight: bold;
       font-size: 1rem;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     }
     .btn-clear {
       flex: 1;
@@ -51,40 +41,35 @@
       cursor: pointer;
     }
 
-    /* 今日薪資快捷登記卡片 */
-    .salary-card {
+    /* 同步至註記卡片 */
+    .sync-card {
       background: #1e293b;
       padding: 10px 12px;
       border-radius: 8px;
       border: 1px solid #334155;
       margin-bottom: 12px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       gap: 8px;
     }
-    .salary-input {
-      background: #0f172a;
-      border: 1px solid #475569;
-      color: #facc15;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 1rem;
-      font-weight: bold;
-      width: 100px;
-    }
-    .btn-save-day {
-      background: #059669;
+    .btn-copy-diary {
+      width: 100%;
+      background: #0284c7;
       color: #fff;
       border: none;
-      padding: 8px 12px;
+      padding: 10px;
       border-radius: 6px;
       font-weight: bold;
+      font-size: 0.95rem;
       cursor: pointer;
-      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
-    /* 當前聚焦案件卡片 */
+    /* 當前焦點工單視窗 */
     .focus-card {
       background: #1e293b;
       padding: 12px;
@@ -92,12 +77,7 @@
       border: 2px solid #38bdf8;
       margin-bottom: 12px;
     }
-    .focus-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
-    }
+    .focus-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
     .focus-title { font-size: 1.35rem; font-weight: bold; font-family: monospace; color: #facc15; }
     .focus-note { font-size: 0.9rem; color: #cbd5e1; }
 
@@ -126,7 +106,6 @@
       font-weight: bold;
       font-size: 1.1rem;
       text-align: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     .view-btn {
       flex: 1;
@@ -150,7 +129,7 @@
     }
     iframe { width: 100%; height: 100%; border: none; }
 
-    /* 清單樣式 */
+    /* 工單清單樣式 */
     .section-title { font-size: 0.95rem; font-weight: bold; color: #94a3b8; margin: 16px 0 8px 0; }
     .task-item {
       background: #1e293b;
@@ -177,16 +156,6 @@
       font-size: 0.75rem;
       cursor: pointer;
     }
-
-    /* 歷史紀錄抽屜 */
-    .history-card {
-      background: #1e293b;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      border-left: 4px solid #facc15;
-    }
-    .history-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9rem; margin-bottom: 6px; }
   </style>
 </head>
 <body>
@@ -196,22 +165,18 @@
     <span id="today-date-text" style="font-size:0.85rem; color:#94a3b8;"></span>
   </h3>
 
-  <!-- 1. 簡化頂部操作：一鍵讀取剪貼簿 + 清空 -->
+  <!-- 頂部按鈕 -->
   <div class="top-action-bar">
     <button id="btn-paste-clip" class="btn-paste">📋 自動貼上圈選文字並匯入</button>
-    <button id="btn-clear-today" class="btn-clear">清空今日</button>
+    <button id="btn-clear-today" class="btn-clear">清空</button>
   </div>
 
-  <!-- 2. 日薪記錄小列 -->
-  <div class="salary-card">
-    <div>
-      <span style="font-size:0.85rem; color:#94a3b8;">今日薪資/工數：</span>
-      <input type="text" id="daily-pay-input" class="salary-input" placeholder="例如 2500">
-    </div>
-    <button id="btn-save-log" class="btn-save-day">💾 存入歷史日薪紀錄</button>
+  <!-- 一鍵複製成日記格式 -->
+  <div class="sync-card">
+    <button id="btn-copy-diary" class="btn-copy-diary">📝 一鍵複製今日案件（可貼入日曆註記）</button>
   </div>
 
-  <!-- 3. 當前案件視窗（含街景與導航） -->
+  <!-- 當前導航視窗 -->
   <div class="focus-card" id="focus-panel" style="display:none;">
     <div class="focus-header">
       <div>
@@ -238,13 +203,9 @@
     </div>
   </div>
 
-  <!-- 4. 今日工單清單 -->
+  <!-- 工單列表 -->
   <div class="section-title">📋 今日工單（點擊切換預覽）</div>
   <div id="task-list"></div>
-
-  <!-- 5. 歷史日薪與施工紀錄 -->
-  <div class="section-title" style="margin-top: 24px;">📅 歷史出工日誌與案件回顧</div>
-  <div id="history-list"></div>
 
   <script>
     const BASE_COORDS = {
@@ -319,20 +280,16 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
-    // 資料管理
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
-    let workHistory = JSON.parse(localStorage.getItem('tpc_salary_logs') || '[]');
     let currentIndex = 0;
     let isStreetView = false;
 
-    // 取得今天日期字串 (YYYY-MM-DD)
     const todayStr = new Date().toISOString().split('T')[0];
     document.getElementById('today-date-text').innerText = todayStr;
 
     const btnPasteClip = document.getElementById('btn-paste-clip');
     const btnClearToday = document.getElementById('btn-clear-today');
-    const dailyPayInput = document.getElementById('daily-pay-input');
-    const btnSaveLog = document.getElementById('btn-save-log');
+    const btnCopyDiary = document.getElementById('btn-copy-diary');
 
     const focusPanel = document.getElementById('focus-panel');
     const focusIndex = document.getElementById('focus-index');
@@ -345,14 +302,9 @@
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     const taskList = document.getElementById('task-list');
-    const historyList = document.getElementById('history-list');
 
     function saveTasks() {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
-    }
-
-    function saveHistory() {
-      localStorage.setItem('tpc_salary_logs', JSON.stringify(workHistory));
     }
 
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
@@ -373,7 +325,7 @@
                            .trim();
 
             if (!tasks.some(t => t.code === cleanCode)) {
-              tasks.push({ code: cleanCode, note: note || '施工地點', done: false });
+              tasks.push({ code: cleanCode, note: note || '施工點', done: false });
               count++;
             }
           });
@@ -389,7 +341,6 @@
       }
     }
 
-    // 一鍵貼上按鈕
     btnPasteClip.onclick = async () => {
       try {
         const text = await navigator.clipboard.readText();
@@ -401,49 +352,37 @@
     };
 
     btnClearToday.onclick = () => {
-      if (confirm('確定要清空今天的案件清單嗎？')) {
+      if (confirm('確定清空今天的工單列表？')) {
         tasks = [];
         saveTasks();
         renderTasks();
       }
     };
 
-    // 儲存日薪歷史紀錄
-    btnSaveLog.onclick = () => {
-      const pay = dailyPayInput.value.trim();
-      if (!pay) {
-        alert("請輸入今日日薪金額或工數！");
-        return;
-      }
+    // 一鍵生成日記文字並複製到剪貼簿
+    btnCopyDiary.onclick = async () => {
       if (tasks.length === 0) {
-        alert("今日尚無案件，無法存檔！");
+        alert("目前沒有工單可以複製！");
         return;
       }
 
-      const logEntry = {
-        date: todayStr,
-        pay: pay,
-        tasks: [...tasks]
-      };
+      const diaryText = tasks.map((t, idx) => {
+        return `${idx + 1}. ${t.code} (${t.note || '無備註'})`;
+      }).join('\n');
 
-      // 若當天已存在則更新，否則加入最前頭
-      const existIdx = workHistory.findIndex(h => h.date === todayStr);
-      if (existIdx >= 0) {
-        workHistory[existIdx] = logEntry;
-      } else {
-        workHistory.unshift(logEntry);
+      try {
+        await navigator.clipboard.writeText(diaryText);
+        alert(`已複製今日 ${tasks.length} 筆案件！請直接前往日曆貼到「註記」欄位。`);
+      } catch (err) {
+        prompt("請手動複製以下日記文字：", diaryText);
       }
-
-      saveHistory();
-      renderHistory();
-      alert(`已成功記錄 ${todayStr} 日薪：${pay}，共 ${tasks.length} 件工單！`);
     };
 
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
         focusPanel.style.display = 'none';
-        taskList.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:8px;">目前無案件，請複製文字後點上方貼上按鈕。</div>';
+        taskList.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:8px;">尚無案件，請圈選複製報工文字後點上方按鈕匯入。</div>';
         return;
       }
 
@@ -537,43 +476,7 @@
       renderTasks();
     };
 
-    // 渲染歷史日薪紀錄列表
-    function renderHistory() {
-      historyList.innerHTML = '';
-      if (workHistory.length === 0) {
-        historyList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;">尚無歷史紀錄</div>';
-        return;
-      }
-
-      workHistory.forEach((h, hIdx) => {
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        card.innerHTML = `
-          <div class="history-header">
-            <span>📅 ${h.date} (日薪: $${h.pay})</span>
-            <span style="color:#38bdf8;cursor:pointer;" onclick="loadHistoryToToday(${hIdx})">載入預覽 ↩</span>
-          </div>
-          <div style="font-size:0.8rem; color:#94a3b8;">
-            ${h.tasks.map(t => `${t.code} (${t.note})`).join('<br>')}
-          </div>
-        `;
-        historyList.appendChild(card);
-      });
-    }
-
-    // 點擊歷史紀錄直接載入到主畫面做街景預覽
-    window.loadHistoryToToday = (idx) => {
-      if (confirm(`是否載入 ${workHistory[idx].date} 的案件進行預覽？`)) {
-        tasks = [...workHistory[idx].tasks];
-        saveTasks();
-        renderTasks();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    };
-
-    // 啟動初始化
     renderTasks();
-    renderHistory();
   </script>
 </body>
 </html>
