@@ -19,7 +19,7 @@
       flex-direction: column;
     }
 
-    /* 頂部固定操作區 */
+    /* 頂部固定操作面板 */
     .top-section {
       padding: 8px 10px 4px 10px;
       flex-shrink: 0;
@@ -27,17 +27,18 @@
       z-index: 20;
     }
 
+    /* 頂部三顆主按鈕 */
     .top-toolbar {
       display: flex;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .btn-top {
-      padding: 10px 0;
+      padding: 9px 0;
       border: 1px solid #334155;
       color: #f8fafc;
       border-radius: 8px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
       text-align: center;
@@ -47,21 +48,71 @@
     .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
     .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1.2; }
 
-    /* 工單列表 */
+    /* 手動快速輸入列 (開頭自帶 G) */
+    .manual-input-bar {
+      display: flex;
+      align-items: center;
+      background: #131d31;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 3px 6px;
+      margin-bottom: 6px;
+      gap: 4px;
+    }
+    .prefix-badge {
+      background: #3b82f6;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.15rem;
+      font-family: monospace;
+      padding: 4px 10px;
+      border-radius: 6px;
+      user-select: none;
+    }
+    .manual-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #facc15;
+      font-size: 1.15rem;
+      font-family: monospace;
+      font-weight: bold;
+      outline: none;
+      text-transform: uppercase;
+    }
+    .manual-input::placeholder {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: normal;
+      font-family: -apple-system, sans-serif;
+    }
+    .btn-manual-add {
+      background: #16a34a;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* 工單清單列表 */
     .task-list-section {
       background: #131d31;
       border-radius: 8px;
       border: 1px solid #1e293b;
       padding: 4px 6px;
-      max-height: 125px;
+      max-height: 110px;
       overflow-y: auto;
     }
     .task-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 8px;
-      margin-bottom: 4px;
+      padding: 5px 8px;
+      margin-bottom: 3px;
       background: #1e293b;
       border-radius: 6px;
       border-left: 5px solid #475569;
@@ -122,14 +173,14 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      padding: 9px 0;
+      padding: 8px 0;
     }
     .btn-toggle-view {
       flex: 1;
       background: #1e293b;
       color: #f8fafc;
       border: 1px solid #64748b;
-      padding: 9px 0;
+      padding: 8px 0;
       border-radius: 6px;
       font-weight: bold;
       font-size: 0.9rem;
@@ -283,14 +334,23 @@
 </head>
 <body>
 
-  <!-- 上半部固定操作區 -->
+  <!-- 上半部固定操作面板 -->
   <div class="top-section">
+    <!-- 頂部工具列 -->
     <div class="top-toolbar">
       <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
       <button id="btn-clear" class="btn-top btn-clear">清空</button>
       <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
     </div>
 
+    <!-- 手動輸入圖號欄位 (開頭自帶 G) -->
+    <div class="manual-input-bar">
+      <span class="prefix-badge">G</span>
+      <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入後續圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
+    </div>
+
+    <!-- 工單列表 -->
     <div class="task-list-section">
       <div id="task-list"></div>
     </div>
@@ -323,7 +383,7 @@
 
       <div class="calendar-grid" id="calendar-body"></div>
 
-      <!-- 點擊日期後彈出的快捷操作盤 -->
+      <!-- 點選日期後的快捷操作盤 -->
       <div id="day-action-sheet">
         <div class="sheet-title">
           <span id="sheet-date-text">2026-09-12</span>
@@ -432,6 +492,11 @@
     const btnToggleView = document.getElementById('btn-toggle-view');
     const mapFrame = document.getElementById('map-frame');
 
+    // 手動輸入 DOM
+    const manualCodeInput = document.getElementById('manual-code-input');
+    const btnManualAdd = document.getElementById('btn-manual-add');
+
+    // 月曆 Modal DOM
     const calendarModal = document.getElementById('calendar-modal');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const calTitle = document.getElementById('cal-title');
@@ -457,6 +522,7 @@
       }
     }
 
+    // 支援包含空白的圖號抓取
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
 
     function parseText(content) {
@@ -490,6 +556,34 @@
         alert("剪貼簿中未偵測到台電圖號，請先圈選複製！");
       }
     }
+
+    // 手動新增單筆工單 (自動補 G)
+    function handleManualAdd() {
+      let val = manualCodeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!val) return;
+
+      // 如果使用者自己又打了 G，先去掉避免重複變成 GG...
+      if (val.startsWith('G')) {
+        val = val.substring(1);
+      }
+
+      const fullCode = sanitizeTaipowerCode('G' + val);
+      if (fullCode.length < 9) {
+        alert("圖號長度不足，請輸入完整 9 碼或 11 碼！");
+        return;
+      }
+
+      tasks.push({ code: fullCode, note: '手動輸入', done: false });
+      saveTasks();
+      renderTasks();
+      selectTask(tasks.length - 1);
+      manualCodeInput.value = '';
+    }
+
+    btnManualAdd.onclick = handleManualAdd;
+    manualCodeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleManualAdd();
+    });
 
     btnImport.onclick = async () => {
       try {
@@ -525,7 +619,7 @@
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
-        taskList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;padding:6px;">尚未匯入案件，請按上方「📋 匯入」。</div>';
+        taskList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;padding:6px;">尚未匯入案件，可手動輸入或按「📋 匯入」。</div>';
         return;
       }
 
@@ -611,7 +705,7 @@
       renderTasks();
     };
 
-    /* ===== 月曆與操作盤核心 ===== */
+    /* ===== 月曆核心功能 ===== */
     function renderCalendar() {
       calendarBody.innerHTML = '';
       const year = viewYear;
@@ -674,7 +768,6 @@
       renderCalendar();
     };
 
-    // 更新底部快捷操作盤狀態
     function updateActionSheet(dateStr) {
       dayActionSheet.style.display = 'block';
       sheetDateText.innerText = `📅 ${dateStr}`;
@@ -701,7 +794,6 @@
       }
     }
 
-    // 操作盤 1：載入預覽
     btnActionLoad.onclick = () => {
       const records = monthLogs[selectedDate];
       if (records && records.length > 0) {
@@ -712,7 +804,6 @@
       }
     };
 
-    // 操作盤 2：複製文字
     btnActionCopy.onclick = async () => {
       const records = monthLogs[selectedDate];
       if (!records || records.length === 0) return;
@@ -726,7 +817,6 @@
       }
     };
 
-    // 操作盤 3：存入目前案件
     btnActionSave.onclick = () => {
       if (tasks.length === 0) {
         alert("目前畫面上沒有任何案件可以存入！");
@@ -740,7 +830,6 @@
       }
     };
 
-    // 操作盤 4：刪除此日紀錄（解決無刪除鍵痛點）
     btnActionDel.onclick = () => {
       if (!monthLogs[selectedDate]) return;
       if (confirm(`⚠️ 確定要刪除 ${selectedDate} 的所有工單紀錄嗎？（無法復原）`)) {
