@@ -3,209 +3,263 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>⚡ 台電工單導航盤</title>
+  <title>⚡ 台電報工巡檢導航盤</title>
   <style>
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 12px;
-      background: #0f172a;
+      padding: 10px;
+      background: #0b0f19;
       color: #f8fafc;
-      padding-bottom: 60px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
-    h3 { margin: 0 0 10px 0; font-size: 1.15rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
 
-    /* 頂部操作按鈕 */
-    .top-action-bar { display: flex; gap: 8px; margin-bottom: 8px; }
-    .btn-paste {
-      flex: 3;
-      background: #2563eb;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 1rem;
-      cursor: pointer;
+    /* 頂部三個主按鈕：匯入、清、月 */
+    .top-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
     }
-    .btn-clear {
+    .btn-top {
       flex: 1;
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 12px;
+      padding: 12px 0;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #f8fafc;
       border-radius: 8px;
+      font-size: 1.05rem;
       font-weight: bold;
-      font-size: 0.9rem;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-import { background: #2563eb; border-color: #3b82f6; flex: 1.3; }
+    .btn-clear { background: #ef4444; border-color: #f87171; }
+    .btn-month { background: #0284c7; border-color: #38bdf8; }
+
+    /* 上半部：工單清單條列區 */
+    .task-list-section {
+      background: #131d31;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      padding: 6px;
+      margin-bottom: 10px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .task-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      background: #1e293b;
+      border-radius: 6px;
+      border-left: 5px solid #475569;
       cursor: pointer;
     }
+    .task-row.active {
+      background: #1e3a5f;
+      border-left-color: #38bdf8;
+    }
+    .task-row.done {
+      opacity: 0.45;
+      text-decoration: line-through;
+    }
+    .task-title {
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 1.05rem;
+      color: #facc15;
+    }
+    .task-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-left: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 170px;
+    }
+    .row-actions button {
+      background: none;
+      border: 1px solid #64748b;
+      color: #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      padding: 3px 6px;
+      margin-left: 4px;
+    }
 
-    /* 同步至註記卡片 */
-    .sync-card {
-      background: #1e293b;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      margin-bottom: 12px;
+    /* 下半部：超長街景與地圖大視窗 */
+    .map-container {
+      position: relative;
+      flex: 1;
+      min-height: 460px; /* 給予超長空間方便手指轉動街景 */
+      background: #000;
+      border-radius: 10px;
+      border: 2px solid #38bdf8;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* 浮動在街景上方的控制鈕 */
+    .map-floating-top {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
     }
-    .btn-copy-diary {
-      width: 100%;
-      background: #0284c7;
-      color: #fff;
-      border: none;
-      padding: 10px;
+    .float-btn {
+      pointer-events: auto;
+      padding: 10px 16px;
       border-radius: 6px;
       font-weight: bold;
       font-size: 0.95rem;
-      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.6);
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-nav-start {
+      background: #16a34a;
+      color: #fff;
+      border: 1px solid #4ade80;
+    }
+    .btn-toggle-view {
+      background: rgba(15, 23, 42, 0.85);
+      color: #f8fafc;
+      border: 1px solid #64748b;
+      backdrop-filter: blur(4px);
+    }
+
+    /* 浮動在街景底部的 < > 切換案件按鈕 */
+    .map-floating-bottom {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .pager-arrow-btn {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.85);
+      color: #38bdf8;
+      border: 2px solid #38bdf8;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.7);
+      cursor: pointer;
+    }
+    .pager-arrow-btn:disabled {
+      opacity: 0.3;
+      border-color: #64748b;
+      color: #64748b;
     }
 
-    /* 當前焦點工單視窗 */
-    .focus-card {
+    /* 月曆歷史抽屜彈窗 */
+    #history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 99;
+      display: none;
+      padding: 20px 14px;
+      backdrop-filter: blur(4px);
+    }
+    .modal-content {
       background: #1e293b;
-      padding: 12px;
-      border-radius: 8px;
-      border: 2px solid #38bdf8;
-      margin-bottom: 12px;
-    }
-    .focus-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-    .focus-title { font-size: 1.35rem; font-weight: bold; font-family: monospace; color: #facc15; }
-    .focus-note { font-size: 0.9rem; color: #cbd5e1; }
-
-    .pager-bar { display: flex; gap: 8px; margin-bottom: 8px; }
-    .pager-btn {
-      flex: 1;
-      background: #475569;
-      color: #fff;
-      border: none;
-      padding: 10px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    .pager-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-    .nav-actions { display: flex; gap: 8px; margin-bottom: 8px; }
-    .nav-btn {
-      flex: 2;
-      background: #16a34a;
-      color: #fff;
-      text-decoration: none;
-      padding: 12px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 1.1rem;
-      text-align: center;
-    }
-    .view-btn {
-      flex: 1;
-      background: #334155;
-      color: #f8fafc;
-      border: 1px solid #64748b;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .coords-info { font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; }
-
-    .map-wrapper {
-      width: 100%;
-      height: 250px;
-      border-radius: 6px;
-      overflow: hidden;
-      background: #020617;
+      height: 100%;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
       border: 1px solid #475569;
     }
-    iframe { width: 100%; height: 100%; border: none; }
-
-    /* 工單清單樣式 */
-    .section-title { font-size: 0.95rem; font-weight: bold; color: #94a3b8; margin: 16px 0 8px 0; }
-    .task-item {
-      background: #1e293b;
-      padding: 10px 12px;
-      border-radius: 6px;
-      border-left: 5px solid #64748b;
-      margin-bottom: 6px;
+    .modal-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      cursor: pointer;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: #38bdf8;
     }
-    .task-item.active { border-left-color: #38bdf8; background: #334155; }
-    .task-item.done { opacity: 0.45; text-decoration: line-through; }
-    .item-left { display: flex; flex-direction: column; gap: 2px; }
-    .item-code { font-family: monospace; font-weight: bold; font-size: 1.1rem; color: #facc15; }
-    .item-note { font-size: 0.85rem; color: #cbd5e1; }
-    .small-btn {
-      background: none;
-      border: 1px solid #64748b;
-      color: #94a3b8;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 0.75rem;
-      cursor: pointer;
+    .history-items-scroll {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .history-card {
+      background: #0f172a;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      border-left: 4px solid #facc15;
     }
   </style>
 </head>
 <body>
 
-  <h3>
-    <span>⚡ 台電工單導航盤</span>
-    <span id="today-date-text" style="font-size:0.85rem; color:#94a3b8;"></span>
-  </h3>
-
-  <!-- 頂部按鈕 -->
-  <div class="top-action-bar">
-    <button id="btn-paste-clip" class="btn-paste">📋 自動貼上圈選文字並匯入</button>
-    <button id="btn-clear-today" class="btn-clear">清空</button>
+  <!-- 1. 頂部主操作列：匯入 | 清 | 月 -->
+  <div class="top-toolbar">
+    <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
+    <button id="btn-clear" class="btn-top btn-clear">清空</button>
+    <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
   </div>
 
-  <!-- 一鍵複製成日記格式 -->
-  <div class="sync-card">
-    <button id="btn-copy-diary" class="btn-copy-diary">📝 一鍵複製今日案件（可貼入日曆註記）</button>
+  <!-- 2. 工單條列清單：#1, #2, #3, #4 -->
+  <div class="task-list-section" id="task-list-container">
+    <div id="task-list"></div>
   </div>
 
-  <!-- 當前導航視窗 -->
-  <div class="focus-card" id="focus-panel" style="display:none;">
-    <div class="focus-header">
-      <div>
-        <span id="focus-index" style="color:#38bdf8;font-weight:bold;margin-right:6px;">#1</span>
-        <span id="focus-code" class="focus-title"></span>
+  <!-- 3. 超長滿版街景/地圖視窗 -->
+  <div class="map-container">
+    <!-- 頂部浮動按鈕：開始導航 / 切換 -->
+    <div class="map-floating-top">
+      <a id="btn-start-nav" class="float-btn btn-nav-start" target="_blank">🚗 開始導航</a>
+      <button id="btn-toggle-view" class="float-btn btn-toggle-view">切換街景</button>
+    </div>
+
+    <!-- 地圖/街景 iframe 嵌入 -->
+    <iframe id="map-frame" src="about:blank"></iframe>
+
+    <!-- 底部浮動切換箭頭：< 與 > -->
+    <div class="map-floating-bottom">
+      <button id="btn-prev" class="pager-arrow-btn">〈</button>
+      <button id="btn-next" class="pager-arrow-btn">〉</button>
+    </div>
+  </div>
+
+  <!-- 月紀錄彈窗 (點擊「月」開啟) -->
+  <div id="history-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>📅 出工歷史案件回顧</span>
+        <button id="btn-close-modal" style="background:none; border:none; color:#cbd5e1; font-size:1.3rem;">✕</button>
       </div>
-      <span id="focus-note" class="focus-note"></span>
-    </div>
-
-    <div class="pager-bar">
-      <button id="prev-btn" class="pager-btn">◀ 上一件</button>
-      <button id="next-btn" class="pager-btn">下一件 ▶</button>
-    </div>
-
-    <div class="nav-actions">
-      <a id="nav-btn" class="nav-btn" target="_blank">🚗 開始導航</a>
-      <button id="toggle-view-btn" class="view-btn">切換街景</button>
-    </div>
-
-    <div id="coords-text" class="coords-info"></div>
-
-    <div class="map-wrapper">
-      <iframe id="map-frame" src="about:blank"></iframe>
+      <div class="history-items-scroll" id="history-scroll-box"></div>
     </div>
   </div>
-
-  <!-- 工單列表 -->
-  <div class="section-title">📋 今日工單（點擊切換預覽）</div>
-  <div id="task-list"></div>
 
   <script>
     const BASE_COORDS = {
@@ -280,31 +334,35 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
+    // 資料持久化管理
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
+    let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
     let currentIndex = 0;
     let isStreetView = false;
+    const todayKey = new Date().toISOString().split('T')[0];
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    document.getElementById('today-date-text').innerText = todayStr;
-
-    const btnPasteClip = document.getElementById('btn-paste-clip');
-    const btnClearToday = document.getElementById('btn-clear-today');
-    const btnCopyDiary = document.getElementById('btn-copy-diary');
-
-    const focusPanel = document.getElementById('focus-panel');
-    const focusIndex = document.getElementById('focus-index');
-    const focusCode = document.getElementById('focus-code');
-    const focusNote = document.getElementById('focus-note');
-    const navBtn = document.getElementById('nav-btn');
-    const toggleViewBtn = document.getElementById('toggle-view-btn');
-    const mapFrame = document.getElementById('map-frame');
-    const coordsText = document.getElementById('coords-text');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
+    const btnImport = document.getElementById('btn-import');
+    const btnClear = document.getElementById('btn-clear');
+    const btnMonth = document.getElementById('btn-month');
     const taskList = document.getElementById('task-list');
+
+    const btnStartNav = document.getElementById('btn-start-nav');
+    const btnToggleView = document.getElementById('btn-toggle-view');
+    const mapFrame = document.getElementById('map-frame');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    const historyModal = document.getElementById('history-modal');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    const historyScrollBox = document.getElementById('history-scroll-box');
 
     function saveTasks() {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
+      // 自動按日存檔進入月紀錄
+      if (tasks.length > 0) {
+        monthLogs[todayKey] = [...tasks];
+        localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+      }
     }
 
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
@@ -325,7 +383,7 @@
                            .trim();
 
             if (!tasks.some(t => t.code === cleanCode)) {
-              tasks.push({ code: cleanCode, note: note || '施工點', done: false });
+              tasks.push({ code: cleanCode, note: note || '施工地點', done: false });
               count++;
             }
           });
@@ -337,77 +395,69 @@
         renderTasks();
         selectTask(tasks.length - count);
       } else {
-        alert("未在剪貼簿中找到台電圖號，請重新複製！");
+        alert("剪貼簿中未偵測到台電圖號，請先圈選複製！");
       }
     }
 
-    btnPasteClip.onclick = async () => {
+    // 1. 點擊「匯入」按鈕
+    btnImport.onclick = async () => {
       try {
         const text = await navigator.clipboard.readText();
         parseText(text);
       } catch (err) {
-        const manual = prompt("請貼上複製的文字：");
+        const manual = prompt("請直接貼上文字：");
         if (manual) parseText(manual);
       }
     };
 
-    btnClearToday.onclick = () => {
-      if (confirm('確定清空今天的工單列表？')) {
+    // 2. 點擊「清空」按鈕
+    btnClear.onclick = () => {
+      if (confirm('確定清空今日的案件清單？')) {
         tasks = [];
         saveTasks();
         renderTasks();
+        mapFrame.src = 'about:blank';
       }
     };
 
-    // 一鍵生成日記文字並複製到剪貼簿
-    btnCopyDiary.onclick = async () => {
-      if (tasks.length === 0) {
-        alert("目前沒有工單可以複製！");
-        return;
-      }
-
-      const diaryText = tasks.map((t, idx) => {
-        return `${idx + 1}. ${t.code} (${t.note || '無備註'})`;
-      }).join('\n');
-
-      try {
-        await navigator.clipboard.writeText(diaryText);
-        alert(`已複製今日 ${tasks.length} 筆案件！請直接前往日曆貼到「註記」欄位。`);
-      } catch (err) {
-        prompt("請手動複製以下日記文字：", diaryText);
-      }
+    // 3. 點擊「月」開啟紀錄抽屜
+    btnMonth.onclick = () => {
+      renderHistoryModal();
+      historyModal.style.display = 'block';
+    };
+    btnCloseModal.onclick = () => {
+      historyModal.style.display = 'none';
     };
 
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
-        focusPanel.style.display = 'none';
-        taskList.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:8px;">尚無案件，請圈選複製報工文字後點上方按鈕匯入。</div>';
+        taskList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;padding:6px;">尚未匯入案件，請按上方「📋 匯入」。</div>';
+        btnPrev.disabled = true;
+        btnNext.disabled = true;
         return;
       }
 
       tasks.forEach((t, idx) => {
-        const item = document.createElement('div');
-        item.className = `task-item ${idx === currentIndex ? 'active' : ''} ${t.done ? 'done' : ''}`;
-        item.onclick = (e) => {
+        const row = document.createElement('div');
+        row.className = `task-row ${idx === currentIndex ? 'active' : ''} ${t.done ? 'done' : ''}`;
+        row.onclick = (e) => {
           if (e.target.tagName === 'BUTTON') return;
           selectTask(idx);
         };
 
-        item.innerHTML = `
-          <div class="item-left">
-            <div>
-              <span style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
-              <span class="item-code">${t.code}</span>
-            </div>
-            <span class="item-note">${t.note}</span>
+        row.innerHTML = `
+          <div style="display:flex;align-items:baseline;">
+            <span style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
+            <span class="task-title">${t.code}</span>
+            <span class="task-desc">${t.note}</span>
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="small-btn" onclick="toggleDone(${idx})">${t.done ? '復原' : '完工'}</button>
-            <button class="small-btn" style="color:#ef4444;" onclick="deleteTask(${idx})">刪除</button>
+          <div class="row-actions">
+            <button onclick="toggleDone(${idx})">${t.done ? '復原' : '完工'}</button>
+            <button style="color:#ef4444;" onclick="deleteTask(${idx})">✕</button>
           </div>
         `;
-        taskList.appendChild(item);
+        taskList.appendChild(row);
       });
 
       selectTask(currentIndex);
@@ -418,23 +468,23 @@
       currentIndex = idx;
       const t = tasks[currentIndex];
 
-      focusPanel.style.display = 'block';
-      focusIndex.innerText = `#${currentIndex + 1}`;
-      focusCode.innerText = t.code;
-      focusNote.innerText = t.note || '';
-
-      prevBtn.disabled = (currentIndex === 0);
-      nextBtn.disabled = (currentIndex === tasks.length - 1);
+      btnPrev.disabled = (currentIndex === 0);
+      btnNext.disabled = (currentIndex === tasks.length - 1);
 
       const twd67 = taipowerToTWD67(t.code);
       if (twd67) {
         const wgs = twd67ToWGS84(twd67[0], twd67[1]);
-        coordsText.innerText = `WGS84 座標: ${wgs.lat}, ${wgs.lng}`;
-        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
+        btnStartNav.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
+        btnStartNav.style.opacity = '1';
+        btnStartNav.style.pointerEvents = 'auto';
         updateMap(wgs.lat, wgs.lng);
+      } else {
+        btnStartNav.style.opacity = '0.4';
+        btnStartNav.style.pointerEvents = 'none';
+        mapFrame.src = 'about:blank';
       }
 
-      document.querySelectorAll('.task-item').forEach((el, i) => {
+      document.querySelectorAll('.task-row').forEach((el, i) => {
         el.classList.toggle('active', i === currentIndex);
       });
     }
@@ -447,12 +497,10 @@
       }
     }
 
-    prevBtn.onclick = () => { if (currentIndex > 0) selectTask(currentIndex - 1); };
-    nextBtn.onclick = () => { if (currentIndex < tasks.length - 1) selectTask(currentIndex + 1); };
-
-    toggleViewBtn.onclick = () => {
+    // 街景 / 地圖切換
+    btnToggleView.onclick = () => {
       isStreetView = !isStreetView;
-      toggleViewBtn.innerText = isStreetView ? "切換地圖" : "切換街景";
+      btnToggleView.innerText = isStreetView ? "切換地圖" : "切換街景";
       const t = tasks[currentIndex];
       if (t) {
         const twd67 = taipowerToTWD67(t.code);
@@ -462,6 +510,10 @@
         }
       }
     };
+
+    // 浮動上一件 / 下一件
+    btnPrev.onclick = () => { if (currentIndex > 0) selectTask(currentIndex - 1); };
+    btnNext.onclick = () => { if (currentIndex < tasks.length - 1) selectTask(currentIndex + 1); };
 
     window.toggleDone = (idx) => {
       tasks[idx].done = !tasks[idx].done;
@@ -476,6 +528,41 @@
       renderTasks();
     };
 
+    function renderHistoryModal() {
+      historyScrollBox.innerHTML = '';
+      const dates = Object.keys(monthLogs).sort().reverse();
+      if (dates.length === 0) {
+        historyScrollBox.innerHTML = '<div style="color:#64748b;font-size:0.9rem;">目前無出工歷史紀錄</div>';
+        return;
+      }
+
+      dates.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'history-card';
+        const dayTasks = monthLogs[d];
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-weight:bold;">
+            <span style="color:#38bdf8;">📅 ${d} (共 ${dayTasks.length} 件)</span>
+            <span style="color:#facc15;cursor:pointer;" onclick="loadHistoryDate('${d}')">載入查看 ↩</span>
+          </div>
+          <div style="font-size:0.8rem;color:#94a3b8;">
+            ${dayTasks.map(t => `${t.code} (${t.note})`).join('<br>')}
+          </div>
+        `;
+        historyScrollBox.appendChild(card);
+      });
+    }
+
+    window.loadHistoryDate = (dateKey) => {
+      if (confirm(`是否載入 ${dateKey} 的工單進行街景預覽與導航？`)) {
+        tasks = [...monthLogs[dateKey]];
+        saveTasks();
+        renderTasks();
+        historyModal.style.display = 'none';
+      }
+    };
+
+    // 啟動載入
     renderTasks();
   </script>
 </body>
