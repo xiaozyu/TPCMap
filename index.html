@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>⚡ 台電報工巡檢導航盤</title>
+  <!-- 引入標準流暢拖曳函式庫 SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -27,7 +29,6 @@
       z-index: 20;
     }
 
-    /* 頂部三顆主按鈕 */
     .top-toolbar {
       display: flex;
       gap: 8px;
@@ -98,7 +99,7 @@
       white-space: nowrap;
     }
 
-    /* 工單清單列表 */
+    /* 工單清單列表容器 */
     .task-list-section {
       background: #131d31;
       border-radius: 8px;
@@ -119,7 +120,6 @@
       border-left: 5px solid #475569;
       cursor: pointer;
       user-select: none;
-      transition: transform 0.15s, opacity 0.15s;
     }
     .task-row.active {
       background: #1e3a5f;
@@ -129,14 +129,24 @@
       opacity: 0.45;
       text-decoration: line-through;
     }
-    /* 拖曳中的樣式 */
-    .task-row.dragging {
-      opacity: 0.85;
-      background: #2563eb;
-      border-left-color: #facc15;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-      transform: scale(1.02);
+
+    /* === 拖曳微互動動畫規格 === */
+    /* 1. 被壓住浮起的卡片 */
+    .sortable-chosen {
+      background: #1d4ed8 !important;
+      border-left-color: #facc15 !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
+      transform: scale(1.04) !important;
+      z-index: 999 !important;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
+    /* 2. 擠壓預備插入的縫隙 (幽靈預覽) */
+    .sortable-ghost {
+      opacity: 0.25 !important;
+      background: #38bdf8 !important;
+      border: 2px dashed #facc15 !important;
+    }
+
     .drag-handle {
       color: #64748b;
       font-size: 1rem;
@@ -266,7 +276,6 @@
       font-weight: bold;
     }
 
-    /* 月曆網格 */
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -304,7 +313,6 @@
       margin-top: 1px;
     }
 
-    /* 選取日期後的底部操作盤 */
     #day-action-sheet {
       margin-top: 12px;
       background: #0f172a;
@@ -351,40 +359,33 @@
 </head>
 <body>
 
-  <!-- 上半部固定操作面板 -->
   <div class="top-section">
-    <!-- 頂部工具列 -->
     <div class="top-toolbar">
       <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
       <button id="btn-clear" class="btn-top btn-clear">清空</button>
       <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
     </div>
 
-    <!-- 手動輸入圖號欄位 (開頭自帶 G) -->
     <div class="manual-input-bar">
       <span class="prefix-badge">G</span>
       <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入後續圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
     </div>
 
-    <!-- 工單列表 (支援長按拖曳排序) -->
     <div class="task-list-section">
       <div id="task-list"></div>
     </div>
   </div>
 
-  <!-- 街景頂部導航按鈕 -->
   <div class="nav-action-bar">
     <a id="btn-start-nav" class="btn-nav-start" target="_blank">🚗 開始導航</a>
     <button id="btn-toggle-view" class="btn-toggle-view">切換街景</button>
   </div>
 
-  <!-- 下半部滿版街景視窗 -->
   <div class="map-container">
     <iframe id="map-frame" src="about:blank"></iframe>
   </div>
 
-  <!-- 月曆彈窗 -->
   <div id="calendar-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -400,7 +401,6 @@
 
       <div class="calendar-grid" id="calendar-body"></div>
 
-      <!-- 點選日期後的快捷操作盤 -->
       <div id="day-action-sheet">
         <div class="sheet-title">
           <span id="sheet-date-text">2026-09-12</span>
@@ -496,7 +496,6 @@
     let isStreetView = true;
     const todayKey = new Date().toISOString().split('T')[0];
 
-    // 月曆檢視變數
     let viewYear = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
     let selectedDate = todayKey;
@@ -509,11 +508,9 @@
     const btnToggleView = document.getElementById('btn-toggle-view');
     const mapFrame = document.getElementById('map-frame');
 
-    // 手動輸入 DOM
     const manualCodeInput = document.getElementById('manual-code-input');
     const btnManualAdd = document.getElementById('btn-manual-add');
 
-    // 月曆 Modal DOM
     const calendarModal = document.getElementById('calendar-modal');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const calTitle = document.getElementById('cal-title');
@@ -521,7 +518,6 @@
     const calPrev = document.getElementById('cal-prev');
     const calNext = document.getElementById('cal-next');
 
-    // Action Sheet DOM
     const dayActionSheet = document.getElementById('day-action-sheet');
     const sheetDateText = document.getElementById('sheet-date-text');
     const sheetCountText = document.getElementById('sheet-count-text');
@@ -630,12 +626,8 @@
       calendarModal.style.display = 'none';
     };
 
-    /* ===== 觸控長按拖曳排序模組 ===== */
-    let draggedIdx = null;
-    let dragElement = null;
-    let touchStartY = 0;
-    let longPressTimer = null;
-    let isDragging = false;
+    /* ===== SortableJS 順暢拖曳整合 ===== */
+    let sortableInstance = null;
 
     function renderTasks() {
       taskList.innerHTML = '';
@@ -647,12 +639,12 @@
       tasks.forEach((t, idx) => {
         const row = document.createElement('div');
         row.className = `task-row ${idx === currentIndex ? 'active' : ''} ${t.done ? 'done' : ''}`;
-        row.dataset.index = idx;
+        row.dataset.code = t.code;
 
         row.innerHTML = `
           <div style="display:flex;align-items:baseline;">
             <span class="drag-handle">☰</span>
-            <span style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
+            <span class="task-num-label" style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
             <span class="task-title">${t.code}</span>
             <span class="task-desc">${t.note}</span>
           </div>
@@ -662,75 +654,54 @@
           </div>
         `;
 
-        // 點擊事件：切換選中案件
         row.onclick = (e) => {
-          if (isDragging || e.target.tagName === 'BUTTON') return;
+          if (e.target.tagName === 'BUTTON') return;
           selectTask(idx);
         };
 
-        // 觸控拖曳監聽 (支援手機長按拖曳)
-        row.addEventListener('touchstart', (e) => {
-          if (e.target.tagName === 'BUTTON') return;
-          const touch = e.touches[0];
-          touchStartY = touch.clientY;
-
-          longPressTimer = setTimeout(() => {
-            isDragging = true;
-            draggedIdx = idx;
-            dragElement = row;
-            row.classList.add('dragging');
-            if (navigator.vibrate) navigator.vibrate(40); // 震動回饋
-          }, 200); // 按住 200 毫秒進入拖曳插件狀態
-        }, { passive: true });
-
-        row.addEventListener('touchmove', (e) => {
-          if (!isDragging) {
-            clearTimeout(longPressTimer);
-            return;
-          }
-          e.preventDefault(); // 阻止畫面滾動
-
-          const touch = e.touches[0];
-          const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-          if (!elemBelow) return;
-
-          const targetRow = elemBelow.closest('.task-row');
-          if (targetRow && targetRow !== dragElement) {
-            const targetIdx = parseInt(targetRow.dataset.index, 10);
-            if (!isNaN(targetIdx) && targetIdx !== draggedIdx) {
-              // 陣列重新排序
-              const movedItem = tasks.splice(draggedIdx, 1)[0];
-              tasks.splice(targetIdx, 0, movedItem);
-
-              // 保持當前聚焦案件跟隨
-              if (currentIndex === draggedIdx) {
-                currentIndex = targetIdx;
-              } else if (draggedIdx < currentIndex && targetIdx >= currentIndex) {
-                currentIndex--;
-              } else if (draggedIdx > currentIndex && targetIdx <= currentIndex) {
-                currentIndex++;
-              }
-
-              draggedIdx = targetIdx;
-              saveTasks();
-              renderTasks();
-            }
-          }
-        }, { passive: false });
-
-        row.addEventListener('touchend', () => {
-          clearTimeout(longPressTimer);
-          if (isDragging) {
-            isDragging = false;
-            if (dragElement) dragElement.classList.remove('dragging');
-            dragElement = null;
-            draggedIdx = null;
-            saveTasks();
-            renderTasks();
-          }
-        });
-
         taskList.appendChild(row);
+      });
+
+      // 初始化或更新 Sortable
+      if (sortableInstance) {
+        sortableInstance.destroy();
+      }
+
+      sortableInstance = new Sortable(taskList, {
+        animation: 180,              // 180ms 滑動過渡動畫 (上下擠壓開合核心)
+        delay: 150,                  // 手指按住 150ms 進入拖曳 (防誤觸滑動)
+        delayOnTouchOnly: true,
+        touchStartThreshold: 3,
+        ghostClass: 'sortable-ghost', // 插入位置的虛線縫隙
+        chosenClass: 'sortable-chosen', // 浮起放大的卡片
+        onStart: function() {
+          if (navigator.vibrate) navigator.vibrate(35); // 浮起震動回饋
+        },
+        onEnd: function(evt) {
+          const oldIdx = evt.oldIndex;
+          const newIdx = evt.newIndex;
+          if (oldIdx === newIdx) return;
+
+          // 重新排序陣列
+          const moved = tasks.splice(oldIdx, 1)[0];
+          tasks.splice(newIdx, 0, moved);
+
+          // 保持當前聚焦同步
+          if (currentIndex === oldIdx) {
+            currentIndex = newIdx;
+          } else if (oldIdx < currentIndex && newIdx >= currentIndex) {
+            currentIndex--;
+          } else if (oldIdx > currentIndex && newIdx <= currentIndex) {
+            currentIndex++;
+          }
+
+          saveTasks();
+          // 純更新文字編號，不摧毀 DOM 保持動畫自然結束
+          document.querySelectorAll('.task-row').forEach((r, i) => {
+            r.querySelector('.task-num-label').innerText = `#${i + 1}`;
+            r.classList.toggle('active', i === currentIndex);
+          });
+        }
       });
 
       selectTask(currentIndex);
@@ -793,7 +764,6 @@
       renderTasks();
     };
 
-    /* ===== 月曆核心功能 ===== */
     function renderCalendar() {
       calendarBody.innerHTML = '';
       const year = viewYear;
