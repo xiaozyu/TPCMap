@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台電圖號截圖一鍵導航</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <title>⚡ 台電報工圖號・自動辨識導航</title>
+  <!-- 引入 Tesseract.js OCR 庫 -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -18,18 +18,20 @@
     #display-img { display: block; width: 100%; height: auto; }
     .overlay-btn {
       position: absolute;
-      background: rgba(37, 99, 235, 0.6);
+      background: rgba(37, 99, 235, 0.65);
       border: 2px solid #60a5fa;
       border-radius: 4px;
       cursor: pointer;
       color: #fff;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 4px rgba(0,0,0,0.5);
+      transition: background 0.2s;
     }
+    .overlay-btn:active { background: rgba(37, 99, 235, 0.95); }
 
     .list-section { margin-top: 14px; }
     .item-card {
@@ -61,45 +63,42 @@
 
   <div class="upload-card">
     <input type="file" id="file-input" accept="image/*">
-    <div id="status">請上傳螢幕截圖或照片</div>
+    <div id="status">請上傳電腦報工截圖或拍照</div>
   </div>
 
   <div class="img-wrapper" id="img-container">
-    <img id="display-img">
+    <img id="display-img" alt="報工截圖">
   </div>
 
   <div class="list-section" id="items-list"></div>
 
   <script>
-    proj4.defs([
-      ['EPSG:3828', '+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=aust_SA +towgs84=-752,-358,-179,-.0000011698,.0000018398,.0000009822,.00002329 +units=m +no_defs'],
-      ['EPSG:4326', '+proj=longlat +datum=WGS84 +no_defs']
-    ]);
+    // 全台 25 個大分區標準原點坐標 (TWD67 TM2 原點)
+    const BASE_COORDS = {
+      'A': [90000, 2750000],  'B': [170000, 2750000], 'C': [250000, 2750000],
+      'D': [90000, 2700000],  'E': [170000, 2700000], 'F': [250000, 2700000],
+      'G': [170000, 2650000], 'H': [250000, 2650000],
+      'J': [90000, 2600000],  'K': [170000, 2600000], 'L': [250000, 2600000],
+      'M': [90000, 2550000],  'N': [170000, 2550000], 'O': [250000, 2550000],
+      'P': [90000, 2500000],  'Q': [170000, 2500000], 'R': [250000, 2500000],
+      'T': [170000, 2450000], 'U': [250000, 2450000],
+      'V': [170000, 2400000], 'W': [250000, 2400000]
+    };
 
+    // 1. 台電圖號解算為 TWD67 (X, Y)
     function taipowerToTWD67(code) {
       code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length < 9) return null;
 
-      const firstChar = code[0];
-      const baseCoords = {
-        'A': [170000, 2780000], 'B': [250000, 2780000],
-        'C': [90000, 2730000],  'D': [170000, 2730000], 'E': [250000, 2730000],
-        'F': [90000, 2680000],  'G': [170000, 2680000], 'H': [250000, 2680000],
-        'J': [90000, 2630000],  'K': [170000, 2630000], 'L': [250000, 2630000],
-        'M': [90000, 2580000],  'N': [170000, 2580000], 'O': [250000, 2580000],
-        'P': [90000, 2530000],  'Q': [170000, 2530000], 'R': [250000, 2530000],
-        'T': [170000, 2480000], 'U': [250000, 2480000],
-        'V': [170000, 2430000], 'W': [250000, 2430000]
-      };
-
-      if (!baseCoords[firstChar]) return null;
-      let [baseX, baseY] = baseCoords[firstChar];
+      const zone = code[0];
+      if (!BASE_COORDS[zone]) return null;
+      const [baseX, baseY] = BASE_COORDS[zone];
 
       const x_800 = parseInt(code.substring(1, 3), 10);
       const y_500 = parseInt(code.substring(3, 5), 10);
 
-      const subX = code[5].charCodeAt(0) - 65;
-      const subY = code[6].charCodeAt(0) - 65;
+      const subX = code[5].charCodeAt(0) - 65; // A=0, B=100 ... H=700
+      const subY = code[6].charCodeAt(0) - 65; // A=0, B=100 ... E=400
 
       let offsetX = 0, offsetY = 0;
       if (code.length >= 11) {
@@ -115,15 +114,62 @@
       return [x, y];
     }
 
+    // 2. 嚴密高斯-克呂格投影反算 (TM2 TWD67 轉 WGS84 經緯度)
     function twd67ToWGS84(x, y) {
-      const [lng, lat] = proj4('EPSG:3828', 'EPSG:4326', [x, y]);
-      return { lat: lat.toFixed(6), lng: lng.toFixed(6) };
+      // 內政部二維四參數轉換至 TWD97 (精度 1~2 公尺)
+      const A = 0.00001549, B = 0.000006521;
+      const x97 = x + 807.8 + A * x + B * y;
+      const y97 = y - 248.6 + A * y - B * x;
+
+      // GRS80 / WGS84 橢球體參數
+      const a = 6378137.0;
+      const b = 6356752.314245;
+      const lon0 = 121.0 * Math.PI / 180;
+      const k0 = 0.9999;
+      const dx = 250000;
+
+      const e = Math.sqrt(1 - (b * b) / (a * a));
+      const e2 = (e * e) / (1 - e * e);
+
+      const x_shift = x97 - dx;
+      const M = y97 / k0;
+
+      const mu = M / (a * (1 - e*e/4 - 3*e*e*e*e/64 - 5*e*e*e*e*e*e/256));
+      const e1 = (1 - Math.sqrt(1 - e*e)) / (1 + Math.sqrt(1 - e*e));
+
+      const J1 = (3*e1/2 - 27*e1*e1*e1/32);
+      const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
+      const J3 = (151*e1*e1*e1/96);
+
+      const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu);
+
+      const C1 = e2 * Math.pow(Math.cos(fp), 2);
+      const T1 = Math.pow(Math.tan(fp), 2);
+      const R1 = a * (1 - e*e) / Math.pow(1 - e*e * Math.sin(fp)*Math.sin(fp), 1.5);
+      const N1 = a / Math.sqrt(1 - e*e * Math.sin(fp)*Math.sin(fp));
+      const D = x_shift / (N1 * k0);
+
+      const Q1 = N1 * Math.tan(fp) / R1;
+      const Q2 = (D*D/2);
+      const Q3 = (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2) * Math.pow(D, 4) / 24;
+      const Q4 = (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2 - 3*C1*C1) * Math.pow(D, 6) / 720;
+      const latRad = fp - Q1 * (Q2 - Q3 + Q4);
+
+      const Q5 = D;
+      const Q6 = (1 + 2*T1 + C1) * Math.pow(D, 3) / 6;
+      const Q7 = (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2 + 24*T1*T1) * Math.pow(D, 5) / 120;
+      const lonRad = lon0 + (Q5 - Q6 + Q7) / Math.cos(fp);
+
+      return {
+        lat: (latRad * 180 / Math.PI).toFixed(6),
+        lng: (lonRad * 180 / Math.PI).toFixed(6)
+      };
     }
 
     // 支援空格或無空格格式（例如 G4366 HD15、G4463 CA40、G4366DB76）
     const COORD_REGEX = /[A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2})/gi;
 
-    // 圖片預處理：灰階 + 高對比化，去除螢幕波紋與背景色
+    // 圖片預處理：灰階 + 高對比化，去除螢幕波紋與背景色干擾
     function preprocessImage(imgElement) {
       const canvas = document.createElement('canvas');
       canvas.width = imgElement.naturalWidth;
@@ -135,7 +181,7 @@
       const d = imgData.data;
       for (let i = 0; i < d.length; i += 4) {
         const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-        const contrast = gray > 140 ? 255 : 0; // 二值化加強字元邊緣
+        const contrast = gray > 135 ? 255 : 0; // 二值化加強黑白字體邊緣
         d[i] = d[i+1] = d[i+2] = contrast;
       }
       ctx.putImageData(imgData, 0, 0);
@@ -162,11 +208,10 @@
 
       displayImg.onload = async () => {
         try {
-          statusText.innerText = "🔍 強化影像特徵並進行 OCR 辨識...";
+          statusText.innerText = "🔍 強化清晰度並辨識圖號中...";
           const processedCanvas = preprocessImage(displayImg);
 
           const worker = await Tesseract.createWorker('eng');
-          // 設定白名單只關注英數字元與空白，排除中文字干擾
           await worker.setParameters({
             tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
           });
@@ -176,7 +221,6 @@
 
           const detectedItems = [];
           
-          // 解析段落與行文字
           ret.data.lines.forEach(line => {
             const matches = line.text.match(COORD_REGEX);
             if (matches) {
@@ -190,7 +234,7 @@
           });
 
           if (detectedItems.length === 0) {
-            statusText.innerText = "⚠️ 抓不到圖號，請稍微拉遠拍攝或手動在下方核對！";
+            statusText.innerText = "⚠️ 未抓到完整圖號，請在下方手動核對輸入！";
             return;
           }
 
