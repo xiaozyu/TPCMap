@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>⚡ 台電報工巡檢導航盤</title>
-  <!-- 引入標準流暢拖曳函式庫 SortableJS -->
+  <!-- 引入 SortableJS 順暢拖曳動畫庫 -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -23,7 +23,7 @@
 
     /* 頂部固定操作面板 */
     .top-section {
-      padding: 8px 10px 4px 10px;
+      padding: 6px 8px 3px 8px;
       flex-shrink: 0;
       background: #0b0f19;
       z-index: 20;
@@ -31,15 +31,15 @@
 
     .top-toolbar {
       display: flex;
-      gap: 8px;
-      margin-bottom: 6px;
+      gap: 6px;
+      margin-bottom: 5px;
     }
     .btn-top {
-      padding: 9px 0;
+      padding: 8px 0;
       border: 1px solid #334155;
       color: #f8fafc;
-      border-radius: 8px;
-      font-size: 0.95rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
       text-align: center;
@@ -49,25 +49,25 @@
     .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
     .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1.2; }
 
-    /* 手動快速輸入列 (開頭自帶 G) */
+    /* 手動快速輸入列 (自帶 G) */
     .manual-input-bar {
       display: flex;
       align-items: center;
       background: #131d31;
       border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 3px 6px;
-      margin-bottom: 6px;
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin-bottom: 5px;
       gap: 4px;
     }
     .prefix-badge {
       background: #3b82f6;
       color: #fff;
       font-weight: bold;
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-family: monospace;
-      padding: 4px 10px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
       user-select: none;
     }
     .manual-input {
@@ -75,37 +75,36 @@
       background: transparent;
       border: none;
       color: #facc15;
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-family: monospace;
       font-weight: bold;
       outline: none;
       text-transform: uppercase;
     }
     .manual-input::placeholder {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #64748b;
-      font-weight: normal;
       font-family: -apple-system, sans-serif;
     }
     .btn-manual-add {
       background: #16a34a;
       color: #fff;
       border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.8rem;
       font-weight: bold;
       cursor: pointer;
       white-space: nowrap;
     }
 
-    /* 工單清單列表容器 */
+    /* 工單清單列表容器：直接完整展示至少 5 件 */
     .task-list-section {
       background: #131d31;
-      border-radius: 8px;
+      border-radius: 6px;
       border: 1px solid #1e293b;
-      padding: 4px 6px;
-      max-height: 115px;
+      padding: 3px 4px;
+      height: 185px; /* 精準容納 5 筆高度 */
       overflow-y: auto;
       touch-action: pan-y;
     }
@@ -113,11 +112,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 8px;
-      margin-bottom: 4px;
+      height: 33px; /* 緊湊且清楚高度 */
+      padding: 0 6px;
+      margin-bottom: 3px;
       background: #1e293b;
-      border-radius: 6px;
-      border-left: 5px solid #475569;
+      border-radius: 4px;
+      border-left: 4px solid #475569;
       cursor: pointer;
       user-select: none;
     }
@@ -126,43 +126,41 @@
       border-left-color: #38bdf8;
     }
     .task-row.done {
-      opacity: 0.45;
+      opacity: 0.4;
       text-decoration: line-through;
     }
 
-    /* === 拖曳微互動動畫規格 === */
-    /* 1. 被壓住浮起的卡片 */
+    /* 拖曳動畫 */
     .sortable-chosen {
       background: #1d4ed8 !important;
       border-left-color: #facc15 !important;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
-      transform: scale(1.04) !important;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7) !important;
+      transform: scale(1.03) !important;
       z-index: 999 !important;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease;
     }
-    /* 2. 擠壓預備插入的縫隙 (幽靈預覽) */
     .sortable-ghost {
       opacity: 0.25 !important;
       background: #38bdf8 !important;
-      border: 2px dashed #facc15 !important;
+      border: 1px dashed #facc15 !important;
     }
 
     .drag-handle {
       color: #64748b;
-      font-size: 1rem;
-      margin-right: 6px;
+      font-size: 0.9rem;
+      margin-right: 5px;
       cursor: grab;
     }
     .task-title {
       font-family: monospace;
       font-weight: bold;
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       color: #facc15;
     }
     .task-desc {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #94a3b8;
-      margin-left: 8px;
+      margin-left: 6px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -172,17 +170,17 @@
       background: none;
       border: 1px solid #64748b;
       color: #cbd5e1;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      padding: 3px 6px;
-      margin-left: 4px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      padding: 2px 5px;
+      margin-left: 3px;
     }
 
     /* 街景頂部導航條 */
     .nav-action-bar {
       display: flex;
-      gap: 8px;
-      padding: 6px 10px;
+      gap: 6px;
+      padding: 5px 8px;
       background: #0f172a;
       flex-shrink: 0;
       border-top: 1px solid #1e293b;
@@ -194,23 +192,23 @@
       border: 1px solid #4ade80;
       text-decoration: none;
       font-weight: bold;
-      font-size: 1rem;
+      font-size: 0.95rem;
       border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      padding: 8px 0;
+      padding: 7px 0;
     }
     .btn-toggle-view {
       flex: 1;
       background: #1e293b;
       color: #f8fafc;
       border: 1px solid #64748b;
-      padding: 8px 0;
+      padding: 7px 0;
       border-radius: 6px;
       font-weight: bold;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       cursor: pointer;
     }
 
@@ -368,10 +366,11 @@
 
     <div class="manual-input-bar">
       <span class="prefix-badge">G</span>
-      <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入後續圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
+      <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
     </div>
 
+    <!-- 5 筆高度清單 -->
     <div class="task-list-section">
       <div id="task-list"></div>
     </div>
@@ -626,7 +625,6 @@
       calendarModal.style.display = 'none';
     };
 
-    /* ===== SortableJS 順暢拖曳整合 ===== */
     let sortableInstance = null;
 
     function renderTasks() {
@@ -644,7 +642,7 @@
         row.innerHTML = `
           <div style="display:flex;align-items:baseline;">
             <span class="drag-handle">☰</span>
-            <span class="task-num-label" style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
+            <span class="task-num-label" style="color:#38bdf8;font-weight:bold;margin-right:5px;">#${idx + 1}</span>
             <span class="task-title">${t.code}</span>
             <span class="task-desc">${t.note}</span>
           </div>
@@ -662,31 +660,28 @@
         taskList.appendChild(row);
       });
 
-      // 初始化或更新 Sortable
       if (sortableInstance) {
         sortableInstance.destroy();
       }
 
       sortableInstance = new Sortable(taskList, {
-        animation: 180,              // 180ms 滑動過渡動畫 (上下擠壓開合核心)
-        delay: 150,                  // 手指按住 150ms 進入拖曳 (防誤觸滑動)
+        animation: 180,
+        delay: 150,
         delayOnTouchOnly: true,
         touchStartThreshold: 3,
-        ghostClass: 'sortable-ghost', // 插入位置的虛線縫隙
-        chosenClass: 'sortable-chosen', // 浮起放大的卡片
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
         onStart: function() {
-          if (navigator.vibrate) navigator.vibrate(35); // 浮起震動回饋
+          if (navigator.vibrate) navigator.vibrate(35);
         },
         onEnd: function(evt) {
           const oldIdx = evt.oldIndex;
           const newIdx = evt.newIndex;
           if (oldIdx === newIdx) return;
 
-          // 重新排序陣列
           const moved = tasks.splice(oldIdx, 1)[0];
           tasks.splice(newIdx, 0, moved);
 
-          // 保持當前聚焦同步
           if (currentIndex === oldIdx) {
             currentIndex = newIdx;
           } else if (oldIdx < currentIndex && newIdx >= currentIndex) {
@@ -696,7 +691,6 @@
           }
 
           saveTasks();
-          // 純更新文字編號，不摧毀 DOM 保持動畫自然結束
           document.querySelectorAll('.task-row').forEach((r, i) => {
             r.querySelector('.task-num-label').innerText = `#${i + 1}`;
             r.classList.toggle('active', i === currentIndex);
