@@ -2,58 +2,66 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>⚡ 台電報工巡檢導航盤</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    html, body {
       margin: 0;
-      padding: 10px;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       background: #0b0f19;
       color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
     }
 
-    /* 頂部三個主按鈕：匯入、清、月 */
+    /* 頂部固定操作區 */
+    .top-section {
+      padding: 8px 10px 4px 10px;
+      flex-shrink: 0;
+      background: #0b0f19;
+      z-index: 20;
+    }
+
+    /* 頂部三顆主按鈕：匯入、清空、月紀錄 */
     .top-toolbar {
       display: flex;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .btn-top {
-      flex: 1;
-      padding: 12px 0;
+      padding: 10px 0;
       border: 1px solid #334155;
-      background: #1e293b;
       color: #f8fafc;
       border-radius: 8px;
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: bold;
       cursor: pointer;
       text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    .btn-import { background: #2563eb; border-color: #3b82f6; flex: 1.3; }
-    .btn-clear { background: #ef4444; border-color: #f87171; }
-    .btn-month { background: #0284c7; border-color: #38bdf8; }
+    .btn-import { background: #2563eb; border-color: #3b82f6; flex: 1.4; }
+    .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
+    .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1; }
 
-    /* 上半部：工單清單條列區 */
+    /* 工單清單列表 */
     .task-list-section {
       background: #131d31;
       border-radius: 8px;
       border: 1px solid #1e293b;
-      padding: 6px;
-      margin-bottom: 10px;
-      max-height: 160px;
+      padding: 4px 6px;
+      max-height: 125px;
       overflow-y: auto;
     }
     .task-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 10px;
+      padding: 6px 8px;
       margin-bottom: 4px;
       background: #1e293b;
       border-radius: 6px;
@@ -81,7 +89,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 170px;
+      max-width: 160px;
     }
     .row-actions button {
       background: none;
@@ -93,95 +101,76 @@
       margin-left: 4px;
     }
 
-    /* 下半部：超長街景與地圖大視窗 */
+    /* 街景上方專屬導航與案件切換列 */
+    .nav-action-bar {
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #0f172a;
+      flex-shrink: 0;
+      border-top: 1px solid #1e293b;
+    }
+    .btn-nav-step {
+      background: #334155;
+      color: #38bdf8;
+      border: 1px solid #475569;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn-nav-step:disabled {
+      opacity: 0.3;
+      color: #64748b;
+    }
+    .btn-nav-start {
+      flex: 1;
+      background: #16a34a;
+      color: #fff;
+      border: 1px solid #4ade80;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .btn-toggle-view {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #64748b;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* 下半部：完全乾淨的 100% 滿版街景視窗 */
     .map-container {
       position: relative;
       flex: 1;
-      min-height: 460px; /* 給予超長空間方便手指轉動街景 */
+      width: 100%;
+      height: 100%;
       background: #000;
-      border-radius: 10px;
-      border: 2px solid #38bdf8;
+      border-top: 2px solid #38bdf8;
       overflow: hidden;
-      margin-bottom: 8px;
     }
     iframe {
       width: 100%;
       height: 100%;
       border: none;
+      display: block;
     }
 
-    /* 浮動在街景上方的控制鈕 */
-    .map-floating-top {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      right: 8px;
-      display: flex;
-      justify-content: space-between;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .float-btn {
-      pointer-events: auto;
-      padding: 10px 16px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.95rem;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.6);
-      text-decoration: none;
-      display: inline-block;
-    }
-    .btn-nav-start {
-      background: #16a34a;
-      color: #fff;
-      border: 1px solid #4ade80;
-    }
-    .btn-toggle-view {
-      background: rgba(15, 23, 42, 0.85);
-      color: #f8fafc;
-      border: 1px solid #64748b;
-      backdrop-filter: blur(4px);
-    }
-
-    /* 浮動在街景底部的 < > 切換案件按鈕 */
-    .map-floating-bottom {
-      position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 20px;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .pager-arrow-btn {
-      pointer-events: auto;
-      background: rgba(15, 23, 42, 0.85);
-      color: #38bdf8;
-      border: 2px solid #38bdf8;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      font-size: 1.2rem;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 3px 10px rgba(0,0,0,0.7);
-      cursor: pointer;
-    }
-    .pager-arrow-btn:disabled {
-      opacity: 0.3;
-      border-color: #64748b;
-      color: #64748b;
-    }
-
-    /* 月曆歷史抽屜彈窗 */
+    /* 月紀錄彈窗 */
     #history-modal {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
       z-index: 99;
       display: none;
       padding: 20px 14px;
@@ -220,37 +209,33 @@
 </head>
 <body>
 
-  <!-- 1. 頂部主操作列：匯入 | 清 | 月 -->
-  <div class="top-toolbar">
-    <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
-    <button id="btn-clear" class="btn-top btn-clear">清空</button>
-    <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
+  <!-- 上半部固定操作與清單 -->
+  <div class="top-section">
+    <div class="top-toolbar">
+      <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
+      <button id="btn-clear" class="btn-top btn-clear">清空</button>
+      <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
+    </div>
+
+    <div class="task-list-section">
+      <div id="task-list"></div>
+    </div>
   </div>
 
-  <!-- 2. 工單條列清單：#1, #2, #3, #4 -->
-  <div class="task-list-section" id="task-list-container">
-    <div id="task-list"></div>
+  <!-- 街景上方的控制列：上一件 | 🚗 開始導航 | 下一件 | 切換街景 -->
+  <div class="nav-action-bar">
+    <button id="btn-prev" class="btn-nav-step">◀ 上一件</button>
+    <a id="btn-start-nav" class="btn-nav-start" target="_blank">🚗 開始導航</a>
+    <button id="btn-next" class="btn-nav-step">下一件 ▶</button>
+    <button id="btn-toggle-view" class="btn-toggle-view">切換街景</button>
   </div>
 
-  <!-- 3. 超長滿版街景/地圖視窗 -->
+  <!-- 下半部：完全乾淨的滿版街景視窗（Google 自己的移動箭頭與旋轉完全不被干擾） -->
   <div class="map-container">
-    <!-- 頂部浮動按鈕：開始導航 / 切換 -->
-    <div class="map-floating-top">
-      <a id="btn-start-nav" class="float-btn btn-nav-start" target="_blank">🚗 開始導航</a>
-      <button id="btn-toggle-view" class="float-btn btn-toggle-view">切換街景</button>
-    </div>
-
-    <!-- 地圖/街景 iframe 嵌入 -->
     <iframe id="map-frame" src="about:blank"></iframe>
-
-    <!-- 底部浮動切換箭頭：< 與 > -->
-    <div class="map-floating-bottom">
-      <button id="btn-prev" class="pager-arrow-btn">〈</button>
-      <button id="btn-next" class="pager-arrow-btn">〉</button>
-    </div>
   </div>
 
-  <!-- 月紀錄彈窗 (點擊「月」開啟) -->
+  <!-- 月紀錄彈窗 -->
   <div id="history-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -334,11 +319,10 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
-    // 資料持久化管理
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
     let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
     let currentIndex = 0;
-    let isStreetView = false;
+    let isStreetView = true; // 預設直接開啟街景
     const todayKey = new Date().toISOString().split('T')[0];
 
     const btnImport = document.getElementById('btn-import');
@@ -346,11 +330,11 @@
     const btnMonth = document.getElementById('btn-month');
     const taskList = document.getElementById('task-list');
 
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
     const btnStartNav = document.getElementById('btn-start-nav');
     const btnToggleView = document.getElementById('btn-toggle-view');
     const mapFrame = document.getElementById('map-frame');
-    const btnPrev = document.getElementById('btn-prev');
-    const btnNext = document.getElementById('btn-next');
 
     const historyModal = document.getElementById('history-modal');
     const btnCloseModal = document.getElementById('btn-close-modal');
@@ -358,7 +342,6 @@
 
     function saveTasks() {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
-      // 自動按日存檔進入月紀錄
       if (tasks.length > 0) {
         monthLogs[todayKey] = [...tasks];
         localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
@@ -399,7 +382,6 @@
       }
     }
 
-    // 1. 點擊「匯入」按鈕
     btnImport.onclick = async () => {
       try {
         const text = await navigator.clipboard.readText();
@@ -410,9 +392,8 @@
       }
     };
 
-    // 2. 點擊「清空」按鈕
     btnClear.onclick = () => {
-      if (confirm('確定清空今日的案件清單？')) {
+      if (confirm('確定清空今日的所有工單？')) {
         tasks = [];
         saveTasks();
         renderTasks();
@@ -420,7 +401,6 @@
       }
     };
 
-    // 3. 點擊「月」開啟紀錄抽屜
     btnMonth.onclick = () => {
       renderHistoryModal();
       historyModal.style.display = 'block';
@@ -491,13 +471,12 @@
 
     function updateMap(lat, lng) {
       if (isStreetView) {
-        mapFrame.src = `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0&output=svembed`;
+        mapFrame.src = `https://maps.google.com/maps?layer=c&cbll=${lat},${lng}&cbp=12,0,0,0,0&output=svembed`;
       } else {
         mapFrame.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=18&output=embed`;
       }
     }
 
-    // 街景 / 地圖切換
     btnToggleView.onclick = () => {
       isStreetView = !isStreetView;
       btnToggleView.innerText = isStreetView ? "切換地圖" : "切換街景";
@@ -511,7 +490,6 @@
       }
     };
 
-    // 浮動上一件 / 下一件
     btnPrev.onclick = () => { if (currentIndex > 0) selectTask(currentIndex - 1); };
     btnNext.onclick = () => { if (currentIndex < tasks.length - 1) selectTask(currentIndex + 1); };
 
@@ -562,7 +540,6 @@
       }
     };
 
-    // 啟動載入
     renderTasks();
   </script>
 </body>
