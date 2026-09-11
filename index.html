@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>⚡ 台電圖號・手動框選快速導航</title>
+  <title>⚡ 台電圖號・地圖預覽導航</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; touch-action: pan-y; }
@@ -13,7 +13,7 @@
     input[type="file"] { width: 100%; color: #94a3b8; font-size: 0.9rem; }
     #status { margin-top: 6px; font-weight: bold; font-size: 0.95rem; color: #38bdf8; }
 
-    /* 圖片手動框選容器 */
+    /* 圖片手動拉框區 */
     .img-wrapper {
       position: relative;
       width: 100%;
@@ -21,12 +21,10 @@
       border-radius: 8px;
       overflow: hidden;
       display: none;
-      touch-action: none; /* 禁用預設滑動以支援手指拉框 */
+      touch-action: none;
       user-select: none;
     }
     #display-img { display: block; width: 100%; height: auto; pointer-events: none; }
-    
-    /* 拖曳選擇框 */
     #select-box {
       position: absolute;
       border: 2px dashed #38bdf8;
@@ -35,60 +33,105 @@
       pointer-events: none;
     }
 
-    /* 浮動導航結果面板 */
-    #result-panel {
+    /* 預覽與控制面板 */
+    #preview-container {
       display: none;
-      margin-top: 10px;
+      margin-top: 12px;
       background: #1e293b;
       padding: 12px;
       border-radius: 8px;
-      border-left: 5px solid #22c55e;
+      border: 1px solid #334155;
     }
-    .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .coord-val { font-family: monospace; font-size: 1.3rem; font-weight: bold; color: #facc15; }
+    .top-action-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
     .nav-btn {
+      flex: 1;
       background: #16a34a;
       color: #fff;
       text-decoration: none;
-      padding: 10px 18px;
+      padding: 12px;
       border-radius: 6px;
       font-weight: bold;
-      font-size: 1rem;
-      display: inline-block;
-      white-space: nowrap;
+      font-size: 1.1rem;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    .geo-text { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
+    .view-toggle-btn {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #64748b;
+      padding: 0 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    
+    .info-box { margin-bottom: 8px; }
+    .target-input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #facc15;
+      font-size: 1.15rem;
+      font-family: monospace;
+      font-weight: bold;
+      padding: 6px 10px;
+      border-radius: 4px;
+    }
+    .coords-text { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
+
+    /* 內嵌地圖 iframe */
+    .map-frame-wrapper {
+      width: 100%;
+      height: 320px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #1e293b;
+      border: 1px solid #475569;
+    }
+    iframe { width: 100%; height: 100%; border: none; }
   </style>
 </head>
 <body>
 
-  <h3>⚡ 台電圖號・手指框選秒辨識</h3>
+  <h3>⚡ 台電圖號 / 地址・預覽導航</h3>
 
   <div class="upload-card">
     <input type="file" id="file-input" accept="image/*">
     <div id="status">請上傳報工畫面截圖</div>
   </div>
 
-  <!-- 圖片手動拉框區 -->
   <div class="img-wrapper" id="img-container">
     <img id="display-img" alt="派工截圖">
     <div id="select-box"></div>
   </div>
 
-  <!-- 辨識與導航面板 -->
-  <div id="result-panel">
-    <div class="panel-row">
-      <div>
-        <div style="font-size: 0.8rem; color: #94a3b8;">辨識圖號 (可直接點擊修改)：</div>
-        <input type="text" id="coord-input" style="font-size:1.2rem; font-family:monospace; font-weight:bold; background:#0f172a; color:#fff; border:1px solid #475569; padding:4px 8px; border-radius:4px; width:150px;">
-      </div>
-      <a id="nav-action-btn" class="nav-btn" target="_blank">🚗 導航</a>
+  <!-- 預覽與導航區 -->
+  <div id="preview-container">
+    <div class="top-action-bar">
+      <a id="nav-btn" class="nav-btn" target="_blank">🚗 開始導航</a>
+      <button id="toggle-view-btn" class="view-toggle-btn">切換街景</button>
     </div>
-    <div class="geo-text" id="geo-info"></div>
+
+    <div class="info-box">
+      <input type="text" id="target-input" class="target-input">
+      <div id="coords-text" class="coords-text">定位點確認中...</div>
+    </div>
+
+    <div class="map-frame-wrapper">
+      <iframe id="map-frame" src="about:blank"></iframe>
+    </div>
   </div>
 
   <script>
-    // 1. TWD67 基準點定義
     const BASE_COORDS = {
       'A': [90000, 2750000],  'B': [170000, 2750000], 'C': [250000, 2750000],
       'D': [90000, 2700000],  'E': [170000, 2700000], 'F': [250000, 2700000],
@@ -147,13 +190,10 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
-    // 2. OCR Worker 初始化 (常駐記憶體，點框時瞬間辨識)
     let worker = null;
     async function initOCR() {
-      worker = await Tesseract.createWorker('eng');
-      await worker.setParameters({
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
-      });
+      // 支援繁體中文與英數混合辨識
+      worker = await Tesseract.createWorker(['chi_tra', 'eng']);
     }
     initOCR();
 
@@ -162,11 +202,15 @@
     const imgContainer = document.getElementById('img-container');
     const displayImg = document.getElementById('display-img');
     const selectBox = document.getElementById('select-box');
-    const resultPanel = document.getElementById('result-panel');
-    const coordInput = document.getElementById('coord-input');
-    const navBtn = document.getElementById('nav-action-btn');
-    const geoInfo = document.getElementById('geo-info');
+    const previewContainer = document.getElementById('preview-container');
+    const targetInput = document.getElementById('target-input');
+    const navBtn = document.getElementById('nav-btn');
+    const coordsText = document.getElementById('coords-text');
+    const mapFrame = document.getElementById('map-frame');
+    const toggleViewBtn = document.getElementById('toggle-view-btn');
 
+    let currentLat = null, currentLng = null, currentQuery = "";
+    let isStreetView = false;
     let isDrawing = false;
     let startX = 0, startY = 0;
     let currentBox = null;
@@ -175,26 +219,22 @@
       const file = e.target.files[0];
       if (!file) return;
       statusText.innerText = "載入中...";
-      resultPanel.style.display = 'none';
+      previewContainer.style.display = 'none';
 
       const url = URL.createObjectURL(file);
       displayImg.src = url;
       imgContainer.style.display = 'block';
 
       displayImg.onload = () => {
-        statusText.innerText = "👉 請用手指直接在圖片上「框出要導航的圖號」";
+        statusText.innerText = "👉 請用手指框選「圖號」或「地址文字」";
       };
     });
 
-    // 3. 觸控 / 滑鼠拉框事件
     function getPos(e) {
       const rect = imgContainer.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
-      };
+      return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
     function startSelect(e) {
@@ -216,7 +256,6 @@
       const y = Math.min(pos.y, startY);
       const w = Math.abs(pos.x - startX);
       const h = Math.abs(pos.y - startY);
-
       selectBox.style.left = x + 'px';
       selectBox.style.top = y + 'px';
       selectBox.style.width = w + 'px';
@@ -229,7 +268,7 @@
       isDrawing = false;
       if (!currentBox || currentBox.w < 15 || currentBox.h < 10) return;
 
-      statusText.innerText = "⚡ 辨識局部圖號中...";
+      statusText.innerText = "⚡ 正在辨識選取內容...";
       await recognizeCrop(currentBox);
     }
 
@@ -241,7 +280,6 @@
     window.addEventListener('touchmove', moveSelect, { passive: true });
     window.addEventListener('touchend', endSelect);
 
-    // 4. 局部裁切並送 OCR
     async function recognizeCrop(box) {
       const scaleX = displayImg.naturalWidth / displayImg.clientWidth;
       const scaleY = displayImg.naturalHeight / displayImg.clientHeight;
@@ -251,54 +289,77 @@
       cropCanvas.height = box.h * scaleY;
       const ctx = cropCanvas.getContext('2d');
 
-      // 擷取框內局部影像
       ctx.drawImage(
         displayImg,
         box.x * scaleX, box.y * scaleY, box.w * scaleX, box.h * scaleY,
         0, 0, cropCanvas.width, cropCanvas.height
       );
 
-      // 局部增強對比 (二值化)
-      const imgData = ctx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
-      const d = imgData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-        const v = gray > 140 ? 255 : 0;
-        d[i] = d[i+1] = d[i+2] = v;
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      // OCR 辨識
       const ret = await worker.recognize(cropCanvas);
-      const rawText = ret.data.text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      let text = ret.data.text.trim().replace(/\r?\n/g, '');
 
-      // 正規表達式匹配台電格式
-      const match = rawText.match(/[A-HJ-NP-W][0-9]{4}[A-H][A-E](?:[0-9]{4}|[0-9]{2})/);
-      const finalCode = match ? match[0] : rawText;
+      // 優先匹配圖號格式
+      const coordMatch = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase().match(/[A-HJ-NP-W][0-9]{4}[A-H][A-E](?:[0-9]{4}|[0-9]{2})/);
+      
+      if (coordMatch) {
+        text = coordMatch[0];
+      }
 
-      statusText.innerText = "✅ 辨識完成！可點擊確認或手動修改";
-      coordInput.value = finalCode;
-      updateLocation(finalCode);
-      resultPanel.style.display = 'block';
+      targetInput.value = text;
+      statusText.innerText = "✅ 辨識完成！下方可預覽目的地";
+      processTarget(text);
+      previewContainer.style.display = 'block';
     }
 
-    function updateLocation(code) {
-      const twd67 = taipowerToTWD67(code);
+    function processTarget(val) {
+      currentQuery = val;
+      isStreetView = false;
+      toggleViewBtn.innerText = "切換街景";
+
+      // 判定是否為台電圖號
+      const cleanCode = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      const twd67 = taipowerToTWD67(cleanCode);
+
       if (twd67) {
         const wgs = twd67ToWGS84(twd67[0], twd67[1]);
-        geoInfo.innerText = `經緯度: ${wgs.lat}, ${wgs.lng}`;
-        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
-        navBtn.style.opacity = '1';
-        navBtn.style.pointerEvents = 'auto';
+        currentLat = wgs.lat;
+        currentLng = wgs.lng;
+        coordsText.innerText = `台電坐標 WGS84: ${currentLat}, ${currentLng}`;
+        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLng}`;
+        updateMapFrame();
       } else {
-        geoInfo.innerText = `❌ 圖號格式不正確，請手動確認`;
-        navBtn.style.opacity = '0.4';
-        navBtn.style.pointerEvents = 'none';
+        // 一般地址關鍵字
+        currentLat = null;
+        currentLng = null;
+        coordsText.innerText = `門牌地址模式: ${val}`;
+        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(val)}`;
+        mapFrame.src = `https://maps.google.com/maps?q=${encodeURIComponent(val)}&t=&z=17&ie=UTF8&iwloc=&output=embed`;
       }
     }
 
-    coordInput.addEventListener('input', (e) => {
-      updateLocation(e.target.value);
+    function updateMapFrame() {
+      if (!currentLat || !currentLng) return;
+      if (isStreetView) {
+        // 內嵌街景視圖
+        mapFrame.src = `https://maps.google.com/maps?q=&layer=c&cbll=${currentLat},${currentLng}&cbp=11,0,0,0,0&output=svembed`;
+      } else {
+        // 內嵌標準地圖視圖
+        mapFrame.src = `https://maps.google.com/maps?q=${currentLat},${currentLng}&hl=zh-TW&z=18&output=embed`;
+      }
+    }
+
+    toggleViewBtn.addEventListener('click', () => {
+      if (!currentLat || !currentLng) {
+        alert("一般地址模式無法直接切換點對點街景，請使用圖號！");
+        return;
+      }
+      isStreetView = !isStreetView;
+      toggleViewBtn.innerText = isStreetView ? "切換地圖" : "切換街景";
+      updateMapFrame();
+    });
+
+    targetInput.addEventListener('change', (e) => {
+      processTarget(e.target.value);
     });
   </script>
 </body>
