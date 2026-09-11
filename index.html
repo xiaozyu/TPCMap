@@ -2,78 +2,93 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚡ 台電報工圖號・自動辨識導航</title>
-  <!-- 引入 Tesseract.js OCR 庫 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>⚡ 台電圖號・手動框選快速導航</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 14px; background: #f1f5f9; }
-    h3 { margin: 0 0 12px 0; color: #0f172a; }
-    .upload-card { background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 12px; }
-    input[type="file"] { width: 100%; font-size: 1rem; }
-    #status { margin-top: 8px; font-weight: bold; color: #2563eb; }
-    
-    .img-wrapper { position: relative; width: 100%; background: #000; border-radius: 8px; display: none; overflow: hidden; }
-    #display-img { display: block; width: 100%; height: auto; }
-    .overlay-btn {
-      position: absolute;
-      background: rgba(37, 99, 235, 0.65);
-      border: 2px solid #60a5fa;
-      border-radius: 4px;
-      cursor: pointer;
-      color: #fff;
-      font-size: 13px;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 4px rgba(0,0,0,0.5);
-      transition: background 0.2s;
-    }
-    .overlay-btn:active { background: rgba(37, 99, 235, 0.95); }
+    * { box-sizing: border-box; touch-action: pan-y; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px; background: #0f172a; color: #f8fafc; }
+    h3 { margin: 0 0 10px 0; font-size: 1.1rem; }
+    .upload-card { background: #1e293b; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+    input[type="file"] { width: 100%; color: #94a3b8; font-size: 0.9rem; }
+    #status { margin-top: 6px; font-weight: bold; font-size: 0.95rem; color: #38bdf8; }
 
-    .list-section { margin-top: 14px; }
-    .item-card {
-      background: #fff;
-      padding: 12px;
-      margin-bottom: 8px;
+    /* 圖片手動框選容器 */
+    .img-wrapper {
+      position: relative;
+      width: 100%;
+      background: #000;
       border-radius: 8px;
-      border-left: 6px solid #2563eb;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      overflow: hidden;
+      display: none;
+      touch-action: none; /* 禁用預設滑動以支援手指拉框 */
+      user-select: none;
     }
-    .item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .coord-input { font-size: 1.1rem; font-family: monospace; font-weight: bold; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 170px; }
+    #display-img { display: block; width: 100%; height: auto; pointer-events: none; }
+    
+    /* 拖曳選擇框 */
+    #select-box {
+      position: absolute;
+      border: 2px dashed #38bdf8;
+      background: rgba(56, 189, 248, 0.25);
+      display: none;
+      pointer-events: none;
+    }
+
+    /* 浮動導航結果面板 */
+    #result-panel {
+      display: none;
+      margin-top: 10px;
+      background: #1e293b;
+      padding: 12px;
+      border-radius: 8px;
+      border-left: 5px solid #22c55e;
+    }
+    .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .coord-val { font-family: monospace; font-size: 1.3rem; font-weight: bold; color: #facc15; }
     .nav-btn {
       background: #16a34a;
       color: #fff;
       text-decoration: none;
-      padding: 8px 16px;
+      padding: 10px 18px;
       border-radius: 6px;
       font-weight: bold;
-      font-size: 0.95rem;
+      font-size: 1rem;
+      display: inline-block;
       white-space: nowrap;
     }
-    .info-text { font-size: 0.85rem; color: #64748b; margin: 4px 0 0 0; }
+    .geo-text { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
   </style>
 </head>
 <body>
 
-  <h3>⚡ 台電報工圖號・自動辨識導航</h3>
+  <h3>⚡ 台電圖號・手指框選秒辨識</h3>
 
   <div class="upload-card">
     <input type="file" id="file-input" accept="image/*">
-    <div id="status">請上傳電腦報工截圖或拍照</div>
+    <div id="status">請上傳報工畫面截圖</div>
   </div>
 
+  <!-- 圖片手動拉框區 -->
   <div class="img-wrapper" id="img-container">
-    <img id="display-img" alt="報工截圖">
+    <img id="display-img" alt="派工截圖">
+    <div id="select-box"></div>
   </div>
 
-  <div class="list-section" id="items-list"></div>
+  <!-- 辨識與導航面板 -->
+  <div id="result-panel">
+    <div class="panel-row">
+      <div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">辨識圖號 (可直接點擊修改)：</div>
+        <input type="text" id="coord-input" style="font-size:1.2rem; font-family:monospace; font-weight:bold; background:#0f172a; color:#fff; border:1px solid #475569; padding:4px 8px; border-radius:4px; width:150px;">
+      </div>
+      <a id="nav-action-btn" class="nav-btn" target="_blank">🚗 導航</a>
+    </div>
+    <div class="geo-text" id="geo-info"></div>
+  </div>
 
   <script>
-    // 全台 25 個大分區標準原點坐標 (TWD67 TM2 原點)
+    // 1. TWD67 基準點定義
     const BASE_COORDS = {
       'A': [90000, 2750000],  'B': [170000, 2750000], 'C': [250000, 2750000],
       'D': [90000, 2700000],  'E': [170000, 2700000], 'F': [250000, 2700000],
@@ -85,20 +100,17 @@
       'V': [170000, 2400000], 'W': [250000, 2400000]
     };
 
-    // 1. 台電圖號解算為 TWD67 (X, Y)
     function taipowerToTWD67(code) {
       code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length < 9) return null;
-
       const zone = code[0];
       if (!BASE_COORDS[zone]) return null;
       const [baseX, baseY] = BASE_COORDS[zone];
 
       const x_800 = parseInt(code.substring(1, 3), 10);
       const y_500 = parseInt(code.substring(3, 5), 10);
-
-      const subX = code[5].charCodeAt(0) - 65; // A=0, B=100 ... H=700
-      const subY = code[6].charCodeAt(0) - 65; // A=0, B=100 ... E=400
+      const subX = code[5].charCodeAt(0) - 65;
+      const subY = code[6].charCodeAt(0) - 65;
 
       let offsetX = 0, offsetY = 0;
       if (code.length >= 11) {
@@ -108,209 +120,186 @@
         offsetX = parseInt(code[7], 10) * 10;
         offsetY = parseInt(code[8], 10) * 10;
       }
-
-      const x = baseX + (x_800 * 800) + (subX * 100) + offsetX;
-      const y = baseY + (y_500 * 500) + (subY * 100) + offsetY;
-      return [x, y];
+      return [baseX + (x_800 * 800) + (subX * 100) + offsetX, baseY + (y_500 * 500) + (subY * 100) + offsetY];
     }
 
-    // 2. 嚴密高斯-克呂格投影反算 (TM2 TWD67 轉 WGS84 經緯度)
     function twd67ToWGS84(x, y) {
-      // 內政部二維四參數轉換至 TWD97 (精度 1~2 公尺)
       const A = 0.00001549, B = 0.000006521;
       const x97 = x + 807.8 + A * x + B * y;
       const y97 = y - 248.6 + A * y - B * x;
 
-      // GRS80 / WGS84 橢球體參數
-      const a = 6378137.0;
-      const b = 6356752.314245;
-      const lon0 = 121.0 * Math.PI / 180;
-      const k0 = 0.9999;
-      const dx = 250000;
-
-      const e = Math.sqrt(1 - (b * b) / (a * a));
-      const e2 = (e * e) / (1 - e * e);
-
-      const x_shift = x97 - dx;
+      const a = 6378137.0, b = 6356752.314245, lon0 = 121.0 * Math.PI / 180, k0 = 0.9999, dx = 250000;
+      const e = Math.sqrt(1 - (b * b) / (a * a)), e2 = (e * e) / (1 - e * e);
       const M = y97 / k0;
-
       const mu = M / (a * (1 - e*e/4 - 3*e*e*e*e/64 - 5*e*e*e*e*e*e/256));
       const e1 = (1 - Math.sqrt(1 - e*e)) / (1 + Math.sqrt(1 - e*e));
 
-      const J1 = (3*e1/2 - 27*e1*e1*e1/32);
-      const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
-      const J3 = (151*e1*e1*e1/96);
-
-      const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu);
-
+      const fp = mu + (3*e1/2 - 27*e1*e1*e1/32)*Math.sin(2*mu) + (21*e1*e1/16 - 55*e1*e1*e1*e1/32)*Math.sin(4*mu) + (151*e1*e1*e1/96)*Math.sin(6*mu);
       const C1 = e2 * Math.pow(Math.cos(fp), 2);
       const T1 = Math.pow(Math.tan(fp), 2);
       const R1 = a * (1 - e*e) / Math.pow(1 - e*e * Math.sin(fp)*Math.sin(fp), 1.5);
       const N1 = a / Math.sqrt(1 - e*e * Math.sin(fp)*Math.sin(fp));
-      const D = x_shift / (N1 * k0);
+      const D = (x97 - dx) / (N1 * k0);
 
-      const Q1 = N1 * Math.tan(fp) / R1;
-      const Q2 = (D*D/2);
-      const Q3 = (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2) * Math.pow(D, 4) / 24;
-      const Q4 = (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2 - 3*C1*C1) * Math.pow(D, 6) / 720;
-      const latRad = fp - Q1 * (Q2 - Q3 + Q4);
+      const latRad = fp - (N1 * Math.tan(fp) / R1) * ((D*D/2) - (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2)*Math.pow(D,4)/24 + (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2 - 3*C1*C1)*Math.pow(D,6)/720);
+      const lonRad = lon0 + (D - (1 + 2*T1 + C1)*Math.pow(D,3)/6 + (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2 + 24*T1*T1)*Math.pow(D,5)/120) / Math.cos(fp);
 
-      const Q5 = D;
-      const Q6 = (1 + 2*T1 + C1) * Math.pow(D, 3) / 6;
-      const Q7 = (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2 + 24*T1*T1) * Math.pow(D, 5) / 120;
-      const lonRad = lon0 + (Q5 - Q6 + Q7) / Math.cos(fp);
-
-      return {
-        lat: (latRad * 180 / Math.PI).toFixed(6),
-        lng: (lonRad * 180 / Math.PI).toFixed(6)
-      };
+      return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
-    // 支援空格或無空格格式（例如 G4366 HD15、G4463 CA40、G4366DB76）
-    const COORD_REGEX = /[A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2})/gi;
-
-    // 圖片預處理：灰階 + 高對比化，去除螢幕波紋與背景色干擾
-    function preprocessImage(imgElement) {
-      const canvas = document.createElement('canvas');
-      canvas.width = imgElement.naturalWidth;
-      canvas.height = imgElement.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(imgElement, 0, 0);
-
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-        const contrast = gray > 135 ? 255 : 0; // 二值化加強黑白字體邊緣
-        d[i] = d[i+1] = d[i+2] = contrast;
-      }
-      ctx.putImageData(imgData, 0, 0);
-      return canvas;
+    // 2. OCR Worker 初始化 (常駐記憶體，點框時瞬間辨識)
+    let worker = null;
+    async function initOCR() {
+      worker = await Tesseract.createWorker('eng');
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
+      });
     }
+    initOCR();
 
     const fileInput = document.getElementById('file-input');
     const statusText = document.getElementById('status');
     const imgContainer = document.getElementById('img-container');
     const displayImg = document.getElementById('display-img');
-    const itemsList = document.getElementById('items-list');
+    const selectBox = document.getElementById('select-box');
+    const resultPanel = document.getElementById('result-panel');
+    const coordInput = document.getElementById('coord-input');
+    const navBtn = document.getElementById('nav-action-btn');
+    const geoInfo = document.getElementById('geo-info');
 
-    fileInput.addEventListener('change', async (e) => {
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let currentBox = null;
+
+    fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
-      statusText.innerText = "⏳ 載入圖片中...";
-      itemsList.innerHTML = "";
-      document.querySelectorAll('.overlay-btn').forEach(el => el.remove());
+      statusText.innerText = "載入中...";
+      resultPanel.style.display = 'none';
 
       const url = URL.createObjectURL(file);
       displayImg.src = url;
       imgContainer.style.display = 'block';
 
-      displayImg.onload = async () => {
-        try {
-          statusText.innerText = "🔍 強化清晰度並辨識圖號中...";
-          const processedCanvas = preprocessImage(displayImg);
-
-          const worker = await Tesseract.createWorker('eng');
-          await worker.setParameters({
-            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
-          });
-          
-          const ret = await worker.recognize(processedCanvas);
-          await worker.terminate();
-
-          const detectedItems = [];
-          
-          ret.data.lines.forEach(line => {
-            const matches = line.text.match(COORD_REGEX);
-            if (matches) {
-              matches.forEach(m => {
-                detectedItems.push({
-                  code: m.replace(/\s+/g, '').toUpperCase(),
-                  bbox: line.bbox
-                });
-              });
-            }
-          });
-
-          if (detectedItems.length === 0) {
-            statusText.innerText = "⚠️ 未抓到完整圖號，請在下方手動核對輸入！";
-            return;
-          }
-
-          statusText.innerText = `✅ 成功辨識出 ${detectedItems.length} 筆圖號！`;
-          renderResults(detectedItems);
-
-        } catch (err) {
-          console.error(err);
-          statusText.innerText = "❌ 辨識失敗，請重試。";
-        }
+      displayImg.onload = () => {
+        statusText.innerText = "👉 請用手指直接在圖片上「框出要導航的圖號」";
       };
     });
 
-    function renderResults(items) {
-      const imgWidth = displayImg.naturalWidth;
-      const imgHeight = displayImg.naturalHeight;
-
-      items.forEach((item, index) => {
-        const leftPercent = (item.bbox.x0 / imgWidth) * 100;
-        const topPercent = (item.bbox.y0 / imgHeight) * 100;
-        const widthPercent = ((item.bbox.x1 - item.bbox.x0) / imgWidth) * 100;
-        const heightPercent = ((item.bbox.y1 - item.bbox.y0) / imgHeight) * 100;
-
-        const btn = document.createElement('div');
-        btn.className = 'overlay-btn';
-        btn.style.left = `${leftPercent}%`;
-        btn.style.top = `${topPercent}%`;
-        btn.style.width = `${Math.max(widthPercent, 10)}%`;
-        btn.style.height = `${Math.max(heightPercent, 4)}%`;
-        btn.innerText = `#${index + 1}`;
-
-        imgContainer.appendChild(btn);
-
-        const card = document.createElement('div');
-        card.className = 'item-card';
-
-        const updateItem = (newCode) => {
-          const twd67 = taipowerToTWD67(newCode);
-          if (twd67) {
-            const wgs = twd67ToWGS84(twd67[0], twd67[1]);
-            const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
-            
-            navLink.href = navUrl;
-            navLink.style.display = 'inline-block';
-            coordsText.innerText = `經緯度: ${wgs.lat}, ${wgs.lng}`;
-            btn.onclick = () => window.open(navUrl, '_blank');
-          } else {
-            navLink.style.display = 'none';
-            coordsText.innerText = `❌ 圖號格式有誤`;
-            btn.onclick = null;
-          }
-        };
-
-        card.innerHTML = `
-          <div class="item-row">
-            <div>
-              <b>#${index + 1} 圖號：</b>
-              <input class="coord-input" type="text" value="${item.code}">
-            </div>
-            <a class="nav-btn" target="_blank">🚗 導航</a>
-          </div>
-          <p class="info-text coords-val">計算中...</p>
-        `;
-
-        const input = card.querySelector('.coord-input');
-        const navLink = card.querySelector('.nav-btn');
-        const coordsText = card.querySelector('.coords-val');
-
-        input.addEventListener('input', (e) => {
-          updateItem(e.target.value);
-        });
-
-        itemsList.appendChild(card);
-        updateItem(item.code);
-      });
+    // 3. 觸控 / 滑鼠拉框事件
+    function getPos(e) {
+      const rect = imgContainer.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
     }
+
+    function startSelect(e) {
+      isDrawing = true;
+      const pos = getPos(e);
+      startX = pos.x;
+      startY = pos.y;
+      selectBox.style.left = startX + 'px';
+      selectBox.style.top = startY + 'px';
+      selectBox.style.width = '0px';
+      selectBox.style.height = '0px';
+      selectBox.style.display = 'block';
+    }
+
+    function moveSelect(e) {
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      const x = Math.min(pos.x, startX);
+      const y = Math.min(pos.y, startY);
+      const w = Math.abs(pos.x - startX);
+      const h = Math.abs(pos.y - startY);
+
+      selectBox.style.left = x + 'px';
+      selectBox.style.top = y + 'px';
+      selectBox.style.width = w + 'px';
+      selectBox.style.height = h + 'px';
+      currentBox = { x, y, w, h };
+    }
+
+    async function endSelect() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      if (!currentBox || currentBox.w < 15 || currentBox.h < 10) return;
+
+      statusText.innerText = "⚡ 辨識局部圖號中...";
+      await recognizeCrop(currentBox);
+    }
+
+    imgContainer.addEventListener('mousedown', startSelect);
+    window.addEventListener('mousemove', moveSelect);
+    window.addEventListener('mouseup', endSelect);
+
+    imgContainer.addEventListener('touchstart', startSelect, { passive: true });
+    window.addEventListener('touchmove', moveSelect, { passive: true });
+    window.addEventListener('touchend', endSelect);
+
+    // 4. 局部裁切並送 OCR
+    async function recognizeCrop(box) {
+      const scaleX = displayImg.naturalWidth / displayImg.clientWidth;
+      const scaleY = displayImg.naturalHeight / displayImg.clientHeight;
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = box.w * scaleX;
+      cropCanvas.height = box.h * scaleY;
+      const ctx = cropCanvas.getContext('2d');
+
+      // 擷取框內局部影像
+      ctx.drawImage(
+        displayImg,
+        box.x * scaleX, box.y * scaleY, box.w * scaleX, box.h * scaleY,
+        0, 0, cropCanvas.width, cropCanvas.height
+      );
+
+      // 局部增強對比 (二值化)
+      const imgData = ctx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+        const v = gray > 140 ? 255 : 0;
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      // OCR 辨識
+      const ret = await worker.recognize(cropCanvas);
+      const rawText = ret.data.text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+      // 正規表達式匹配台電格式
+      const match = rawText.match(/[A-HJ-NP-W][0-9]{4}[A-H][A-E](?:[0-9]{4}|[0-9]{2})/);
+      const finalCode = match ? match[0] : rawText;
+
+      statusText.innerText = "✅ 辨識完成！可點擊確認或手動修改";
+      coordInput.value = finalCode;
+      updateLocation(finalCode);
+      resultPanel.style.display = 'block';
+    }
+
+    function updateLocation(code) {
+      const twd67 = taipowerToTWD67(code);
+      if (twd67) {
+        const wgs = twd67ToWGS84(twd67[0], twd67[1]);
+        geoInfo.innerText = `經緯度: ${wgs.lat}, ${wgs.lng}`;
+        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
+        navBtn.style.opacity = '1';
+        navBtn.style.pointerEvents = 'auto';
+      } else {
+        geoInfo.innerText = `❌ 圖號格式不正確，請手動確認`;
+        navBtn.style.opacity = '0.4';
+        navBtn.style.pointerEvents = 'none';
+      }
+    }
+
+    coordInput.addEventListener('input', (e) => {
+      updateLocation(e.target.value);
+    });
   </script>
 </body>
 </html>
