@@ -104,19 +104,22 @@
       border-radius: 8px;
       border: 1px solid #1e293b;
       padding: 4px 6px;
-      max-height: 110px;
+      max-height: 115px;
       overflow-y: auto;
+      touch-action: pan-y;
     }
     .task-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 5px 8px;
-      margin-bottom: 3px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
       background: #1e293b;
       border-radius: 6px;
       border-left: 5px solid #475569;
       cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s, opacity 0.15s;
     }
     .task-row.active {
       background: #1e3a5f;
@@ -125,6 +128,20 @@
     .task-row.done {
       opacity: 0.45;
       text-decoration: line-through;
+    }
+    /* 拖曳中的樣式 */
+    .task-row.dragging {
+      opacity: 0.85;
+      background: #2563eb;
+      border-left-color: #facc15;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      transform: scale(1.02);
+    }
+    .drag-handle {
+      color: #64748b;
+      font-size: 1rem;
+      margin-right: 6px;
+      cursor: grab;
     }
     .task-title {
       font-family: monospace;
@@ -139,7 +156,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 160px;
+      max-width: 140px;
     }
     .row-actions button {
       background: none;
@@ -350,7 +367,7 @@
       <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
     </div>
 
-    <!-- 工單列表 -->
+    <!-- 工單列表 (支援長按拖曳排序) -->
     <div class="task-list-section">
       <div id="task-list"></div>
     </div>
@@ -522,7 +539,6 @@
       }
     }
 
-    // 支援包含空白的圖號抓取
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
 
     function parseText(content) {
@@ -557,12 +573,10 @@
       }
     }
 
-    // 手動新增單筆工單 (自動補 G)
     function handleManualAdd() {
       let val = manualCodeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (!val) return;
 
-      // 如果使用者自己又打了 G，先去掉避免重複變成 GG...
       if (val.startsWith('G')) {
         val = val.substring(1);
       }
@@ -573,7 +587,7 @@
         return;
       }
 
-      tasks.push({ code: fullCode, note: '手動輸入', done: false });
+      tasks.push({ code: fullCode, note: '手動新增', done: false });
       saveTasks();
       renderTasks();
       selectTask(tasks.length - 1);
@@ -616,6 +630,13 @@
       calendarModal.style.display = 'none';
     };
 
+    /* ===== 觸控長按拖曳排序模組 ===== */
+    let draggedIdx = null;
+    let dragElement = null;
+    let touchStartY = 0;
+    let longPressTimer = null;
+    let isDragging = false;
+
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
@@ -626,13 +647,11 @@
       tasks.forEach((t, idx) => {
         const row = document.createElement('div');
         row.className = `task-row ${idx === currentIndex ? 'active' : ''} ${t.done ? 'done' : ''}`;
-        row.onclick = (e) => {
-          if (e.target.tagName === 'BUTTON') return;
-          selectTask(idx);
-        };
+        row.dataset.index = idx;
 
         row.innerHTML = `
           <div style="display:flex;align-items:baseline;">
+            <span class="drag-handle">☰</span>
             <span style="color:#38bdf8;font-weight:bold;margin-right:6px;">#${idx + 1}</span>
             <span class="task-title">${t.code}</span>
             <span class="task-desc">${t.note}</span>
@@ -642,6 +661,75 @@
             <button style="color:#ef4444;" onclick="deleteTask(${idx})">✕</button>
           </div>
         `;
+
+        // 點擊事件：切換選中案件
+        row.onclick = (e) => {
+          if (isDragging || e.target.tagName === 'BUTTON') return;
+          selectTask(idx);
+        };
+
+        // 觸控拖曳監聽 (支援手機長按拖曳)
+        row.addEventListener('touchstart', (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          const touch = e.touches[0];
+          touchStartY = touch.clientY;
+
+          longPressTimer = setTimeout(() => {
+            isDragging = true;
+            draggedIdx = idx;
+            dragElement = row;
+            row.classList.add('dragging');
+            if (navigator.vibrate) navigator.vibrate(40); // 震動回饋
+          }, 200); // 按住 200 毫秒進入拖曳插件狀態
+        }, { passive: true });
+
+        row.addEventListener('touchmove', (e) => {
+          if (!isDragging) {
+            clearTimeout(longPressTimer);
+            return;
+          }
+          e.preventDefault(); // 阻止畫面滾動
+
+          const touch = e.touches[0];
+          const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+          if (!elemBelow) return;
+
+          const targetRow = elemBelow.closest('.task-row');
+          if (targetRow && targetRow !== dragElement) {
+            const targetIdx = parseInt(targetRow.dataset.index, 10);
+            if (!isNaN(targetIdx) && targetIdx !== draggedIdx) {
+              // 陣列重新排序
+              const movedItem = tasks.splice(draggedIdx, 1)[0];
+              tasks.splice(targetIdx, 0, movedItem);
+
+              // 保持當前聚焦案件跟隨
+              if (currentIndex === draggedIdx) {
+                currentIndex = targetIdx;
+              } else if (draggedIdx < currentIndex && targetIdx >= currentIndex) {
+                currentIndex--;
+              } else if (draggedIdx > currentIndex && targetIdx <= currentIndex) {
+                currentIndex++;
+              }
+
+              draggedIdx = targetIdx;
+              saveTasks();
+              renderTasks();
+            }
+          }
+        }, { passive: false });
+
+        row.addEventListener('touchend', () => {
+          clearTimeout(longPressTimer);
+          if (isDragging) {
+            isDragging = false;
+            if (dragElement) dragElement.classList.remove('dragging');
+            dragElement = null;
+            draggedIdx = null;
+            saveTasks();
+            renderTasks();
+          }
+        });
+
         taskList.appendChild(row);
       });
 
