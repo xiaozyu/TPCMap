@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>⚡ 台電報工巡檢導航盤</title>
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       margin: 0;
       padding: 0;
@@ -19,7 +19,7 @@
       flex-direction: column;
     }
 
-    /* 頂部固定操作區 */
+    /* 頂部控制面板 */
     .top-section {
       padding: 8px 10px 4px 10px;
       flex-shrink: 0;
@@ -27,7 +27,6 @@
       z-index: 20;
     }
 
-    /* 頂部三顆主按鈕：匯入、清空、月紀錄 */
     .top-toolbar {
       display: flex;
       gap: 8px;
@@ -46,9 +45,9 @@
     }
     .btn-import { background: #2563eb; border-color: #3b82f6; flex: 1.4; }
     .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
-    .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1; }
+    .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1.2; }
 
-    /* 工單清單列表 */
+    /* 工單列表 */
     .task-list-section {
       background: #131d31;
       border-radius: 8px;
@@ -101,31 +100,17 @@
       margin-left: 4px;
     }
 
-    /* 街景上方專屬導航與案件切換列 */
+    /* 街景頂部導航條（僅保留開始導航與切換街景） */
     .nav-action-bar {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       padding: 6px 10px;
       background: #0f172a;
       flex-shrink: 0;
       border-top: 1px solid #1e293b;
     }
-    .btn-nav-step {
-      background: #334155;
-      color: #38bdf8;
-      border: 1px solid #475569;
-      padding: 9px 12px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    .btn-nav-step:disabled {
-      opacity: 0.3;
-      color: #64748b;
-    }
     .btn-nav-start {
-      flex: 1;
+      flex: 2;
       background: #16a34a;
       color: #fff;
       border: 1px solid #4ade80;
@@ -137,19 +122,21 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      padding: 9px 0;
     }
     .btn-toggle-view {
+      flex: 1;
       background: #1e293b;
       color: #f8fafc;
       border: 1px solid #64748b;
-      padding: 9px 12px;
+      padding: 9px 0;
       border-radius: 6px;
       font-weight: bold;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       cursor: pointer;
     }
 
-    /* 下半部：完全乾淨的 100% 滿版街景視窗 */
+    /* 滿版街景視窗 */
     .map-container {
       position: relative;
       flex: 1;
@@ -166,50 +153,98 @@
       display: block;
     }
 
-    /* 月紀錄彈窗 */
-    #history-modal {
+    /* 月曆 Modal */
+    #calendar-modal {
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.85);
       z-index: 99;
       display: none;
-      padding: 20px 14px;
+      padding: 16px;
       backdrop-filter: blur(4px);
     }
     .modal-content {
       background: #1e293b;
-      height: 100%;
-      border-radius: 10px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
       padding: 14px;
       border: 1px solid #475569;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      font-weight: bold;
       font-size: 1.1rem;
+      font-weight: bold;
       color: #38bdf8;
+      margin-bottom: 12px;
     }
-    .history-items-scroll {
-      flex: 1;
-      overflow-y: auto;
+    .cal-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
     }
-    .history-card {
+    .cal-controls button {
+      background: #334155;
+      color: #fff;
+      border: 1px solid #64748b;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    /* 月曆網格 */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+    .cal-weekday {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      padding-bottom: 4px;
+      font-weight: bold;
+    }
+    .cal-day {
       background: #0f172a;
-      padding: 10px;
+      border: 1px solid #334155;
       border-radius: 6px;
-      margin-bottom: 8px;
-      border-left: 4px solid #facc15;
+      height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+    }
+    .cal-day.today { border-color: #38bdf8; font-weight: bold; }
+    .cal-day.has-data {
+      border-color: #10b981;
+      background: #064e3b;
+    }
+    .badge-count {
+      font-size: 0.65rem;
+      color: #34d399;
+      margin-top: 2px;
+    }
+    .cal-hint {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-align: center;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
 
-  <!-- 上半部固定操作與清單 -->
+  <!-- 上半部固定操作區 -->
   <div class="top-section">
     <div class="top-toolbar">
       <button id="btn-import" class="btn-top btn-import">📋 匯入</button>
@@ -222,27 +257,37 @@
     </div>
   </div>
 
-  <!-- 街景上方的控制列：上一件 | 🚗 開始導航 | 下一件 | 切換街景 -->
+  <!-- 街景頂部導航按鈕 -->
   <div class="nav-action-bar">
-    <button id="btn-prev" class="btn-nav-step">◀ 上一件</button>
     <a id="btn-start-nav" class="btn-nav-start" target="_blank">🚗 開始導航</a>
-    <button id="btn-next" class="btn-nav-step">下一件 ▶</button>
     <button id="btn-toggle-view" class="btn-toggle-view">切換街景</button>
   </div>
 
-  <!-- 下半部：完全乾淨的滿版街景視窗（Google 自己的移動箭頭與旋轉完全不被干擾） -->
+  <!-- 下半部滿版街景視窗 -->
   <div class="map-container">
     <iframe id="map-frame" src="about:blank"></iframe>
   </div>
 
-  <!-- 月紀錄彈窗 -->
-  <div id="history-modal">
+  <!-- 月曆視窗 -->
+  <div id="calendar-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <span>📅 出工歷史案件回顧</span>
+        <span>📅 出工月曆管理</span>
         <button id="btn-close-modal" style="background:none; border:none; color:#cbd5e1; font-size:1.3rem;">✕</button>
       </div>
-      <div class="history-items-scroll" id="history-scroll-box"></div>
+
+      <div class="cal-controls">
+        <button id="cal-prev">◀ 上個月</button>
+        <span id="cal-title" style="font-weight:bold; font-size:1rem; color:#facc15;"></span>
+        <button id="cal-next">下個月 ▶</button>
+      </div>
+
+      <div class="calendar-grid" id="calendar-body"></div>
+
+      <div class="cal-hint">
+        💡 <b>點擊日期</b>：載入當天工單或存入目前案件<br>
+        💡 <b>長按日期</b>：自動複製當日清單文字至剪貼簿
+      </div>
     </div>
   </div>
 
@@ -322,23 +367,27 @@
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
     let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
     let currentIndex = 0;
-    let isStreetView = true; // 預設直接開啟街景
+    let isStreetView = true;
     const todayKey = new Date().toISOString().split('T')[0];
+
+    // 月曆檢視狀態
+    let viewYear = new Date().getFullYear();
+    let viewMonth = new Date().getMonth(); // 0 ~ 11
 
     const btnImport = document.getElementById('btn-import');
     const btnClear = document.getElementById('btn-clear');
     const btnMonth = document.getElementById('btn-month');
     const taskList = document.getElementById('task-list');
-
-    const btnPrev = document.getElementById('btn-prev');
-    const btnNext = document.getElementById('btn-next');
     const btnStartNav = document.getElementById('btn-start-nav');
     const btnToggleView = document.getElementById('btn-toggle-view');
     const mapFrame = document.getElementById('map-frame');
 
-    const historyModal = document.getElementById('history-modal');
+    const calendarModal = document.getElementById('calendar-modal');
     const btnCloseModal = document.getElementById('btn-close-modal');
-    const historyScrollBox = document.getElementById('history-scroll-box');
+    const calTitle = document.getElementById('cal-title');
+    const calendarBody = document.getElementById('calendar-body');
+    const calPrev = document.getElementById('cal-prev');
+    const calNext = document.getElementById('cal-next');
 
     function saveTasks() {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
@@ -402,19 +451,19 @@
     };
 
     btnMonth.onclick = () => {
-      renderHistoryModal();
-      historyModal.style.display = 'block';
+      viewYear = new Date().getFullYear();
+      viewMonth = new Date().getMonth();
+      renderCalendar();
+      calendarModal.style.display = 'block';
     };
     btnCloseModal.onclick = () => {
-      historyModal.style.display = 'none';
+      calendarModal.style.display = 'none';
     };
 
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
         taskList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;padding:6px;">尚未匯入案件，請按上方「📋 匯入」。</div>';
-        btnPrev.disabled = true;
-        btnNext.disabled = true;
         return;
       }
 
@@ -447,9 +496,6 @@
       if (idx < 0 || idx >= tasks.length) return;
       currentIndex = idx;
       const t = tasks[currentIndex];
-
-      btnPrev.disabled = (currentIndex === 0);
-      btnNext.disabled = (currentIndex === tasks.length - 1);
 
       const twd67 = taipowerToTWD67(t.code);
       if (twd67) {
@@ -490,9 +536,6 @@
       }
     };
 
-    btnPrev.onclick = () => { if (currentIndex > 0) selectTask(currentIndex - 1); };
-    btnNext.onclick = () => { if (currentIndex < tasks.length - 1) selectTask(currentIndex + 1); };
-
     window.toggleDone = (idx) => {
       tasks[idx].done = !tasks[idx].done;
       saveTasks();
@@ -506,40 +549,134 @@
       renderTasks();
     };
 
-    function renderHistoryModal() {
-      historyScrollBox.innerHTML = '';
-      const dates = Object.keys(monthLogs).sort().reverse();
-      if (dates.length === 0) {
-        historyScrollBox.innerHTML = '<div style="color:#64748b;font-size:0.9rem;">目前無出工歷史紀錄</div>';
+    /* ===== 月曆核心功能 ===== */
+    function renderCalendar() {
+      calendarBody.innerHTML = '';
+      const year = viewYear;
+      const month = viewMonth;
+      calTitle.innerText = `${year} 年 ${month + 1} 月`;
+
+      // 星期列
+      ['日', '一', '二', '三', '四', '五', '六'].forEach(d => {
+        const h = document.createElement('div');
+        h.className = 'cal-weekday';
+        h.innerText = d;
+        calendarBody.appendChild(h);
+      });
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      // 前置空白格
+      for (let i = 0; i < firstDayIndex; i++) {
+        const empty = document.createElement('div');
+        calendarBody.appendChild(empty);
+      }
+
+      // 天數格
+      for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-day';
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        if (dateStr === todayKey) cell.classList.add('today');
+        
+        const dayRecords = monthLogs[dateStr] || [];
+        if (dayRecords.length > 0) {
+          cell.classList.add('has-data');
+        }
+
+        cell.innerHTML = `
+          <span>${day}</span>
+          ${dayRecords.length > 0 ? `<span class="badge-count">${dayRecords.length}件</span>` : ''}
+        `;
+
+        // 長按事件判斷（Long Press）
+        let pressTimer = null;
+        let isLongPress = false;
+
+        const startPress = () => {
+          isLongPress = false;
+          pressTimer = setTimeout(() => {
+            isLongPress = true;
+            copyDateTasks(dateStr);
+          }, 600); // 按住 0.6 秒觸發自動複製
+        };
+
+        const endPress = () => {
+          clearTimeout(pressTimer);
+        };
+
+        cell.addEventListener('mousedown', startPress);
+        cell.addEventListener('mouseup', endPress);
+        cell.addEventListener('mouseleave', endPress);
+        cell.addEventListener('touchstart', startPress, { passive: true });
+        cell.addEventListener('touchend', endPress);
+
+        // 短按點擊：載入或存入
+        cell.onclick = () => {
+          if (isLongPress) return;
+          handleDayClick(dateStr);
+        };
+
+        calendarBody.appendChild(cell);
+      }
+    }
+
+    calPrev.onclick = () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      renderCalendar();
+    };
+
+    calNext.onclick = () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderCalendar();
+    };
+
+    // 點擊日期邏輯
+    function handleDayClick(dateStr) {
+      const records = monthLogs[dateStr];
+      if (records && records.length > 0) {
+        if (confirm(`是否載入 ${dateStr} 的 ${records.length} 筆工單進行預覽與導航？`)) {
+          tasks = [...records];
+          saveTasks();
+          renderTasks();
+          calendarModal.style.display = 'none';
+        }
+      } else {
+        if (tasks.length > 0) {
+          if (confirm(`目前畫面有 ${tasks.length} 筆案件，是否將它們儲存至 ${dateStr}？`)) {
+            monthLogs[dateStr] = [...tasks];
+            localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+            renderCalendar();
+            alert(`已將案件成功歸檔至 ${dateStr}！`);
+          }
+        } else {
+          alert(`${dateStr} 尚無任何出工紀錄。`);
+        }
+      }
+    }
+
+    // 長按日期：格式化並複製至剪貼簿
+    async function copyDateTasks(dateStr) {
+      const records = monthLogs[dateStr];
+      if (!records || records.length === 0) {
+        alert(`${dateStr} 當天無工單可複製！`);
         return;
       }
 
-      dates.forEach(d => {
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        const dayTasks = monthLogs[d];
-        card.innerHTML = `
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-weight:bold;">
-            <span style="color:#38bdf8;">📅 ${d} (共 ${dayTasks.length} 件)</span>
-            <span style="color:#facc15;cursor:pointer;" onclick="loadHistoryDate('${d}')">載入查看 ↩</span>
-          </div>
-          <div style="font-size:0.8rem;color:#94a3b8;">
-            ${dayTasks.map(t => `${t.code} (${t.note})`).join('<br>')}
-          </div>
-        `;
-        historyScrollBox.appendChild(card);
-      });
+      const text = `${dateStr} 工單紀錄：\n` + records.map((t, idx) => `${idx + 1}. ${t.code} (${t.note})`).join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        alert(`📋 已複製 ${dateStr} 的 ${records.length} 筆工單！\n可以直接貼到外面的日記中。`);
+      } catch (e) {
+        prompt("請手動複製以下工單文字：", text);
+      }
     }
 
-    window.loadHistoryDate = (dateKey) => {
-      if (confirm(`是否載入 ${dateKey} 的工單進行街景預覽與導航？`)) {
-        tasks = [...monthLogs[dateKey]];
-        saveTasks();
-        renderTasks();
-        historyModal.style.display = 'none';
-      }
-    };
-
+    // 啟動時預設載入
     renderTasks();
   </script>
 </body>
