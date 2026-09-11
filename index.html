@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>⚡ 台電報工導航盤・圈選文字秒貼</title>
+  <title>⚡ 台電報工導航・日薪工數盤</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -12,56 +12,79 @@
       padding: 12px;
       background: #0f172a;
       color: #f8fafc;
-      padding-bottom: 50px;
+      padding-bottom: 60px;
     }
 
     h3 { margin: 0 0 10px 0; font-size: 1.15rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
 
-    /* 貼上文字區塊 */
-    .paste-card {
-      background: #1e293b;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #334155;
+    /* 頂部純按鈕控制列 */
+    .top-action-bar {
+      display: flex;
+      gap: 8px;
       margin-bottom: 12px;
     }
-    textarea {
-      width: 100%;
-      height: 70px;
-      background: #0f172a;
-      border: 1px solid #475569;
-      color: #f8fafc;
-      padding: 8px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      resize: none;
-      margin-bottom: 8px;
-    }
-    .action-row { display: flex; gap: 8px; }
     .btn-paste {
-      flex: 2;
+      flex: 3;
       background: #2563eb;
       color: #fff;
       border: none;
-      padding: 10px;
-      border-radius: 6px;
+      padding: 12px;
+      border-radius: 8px;
       font-weight: bold;
-      font-size: 0.95rem;
+      font-size: 1rem;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     }
-    .btn-parse {
+    .btn-clear {
       flex: 1;
-      background: #0284c7;
+      background: #ef4444;
       color: #fff;
       border: none;
-      padding: 10px;
-      border-radius: 6px;
+      padding: 12px;
+      border-radius: 8px;
       font-weight: bold;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       cursor: pointer;
     }
 
-    /* 當前選中案件卡片 */
+    /* 今日薪資快捷登記卡片 */
+    .salary-card {
+      background: #1e293b;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .salary-input {
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #facc15;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      width: 100px;
+    }
+    .btn-save-day {
+      background: #059669;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    /* 當前聚焦案件卡片 */
     .focus-card {
       background: #1e293b;
       padding: 12px;
@@ -127,8 +150,8 @@
     }
     iframe { width: 100%; height: 100%; border: none; }
 
-    /* 案件列表 */
-    .list-title { font-size: 0.95rem; font-weight: bold; color: #94a3b8; margin: 16px 0 8px 0; }
+    /* 清單樣式 */
+    .section-title { font-size: 0.95rem; font-weight: bold; color: #94a3b8; margin: 16px 0 8px 0; }
     .task-item {
       background: #1e293b;
       padding: 10px 12px;
@@ -154,25 +177,41 @@
       font-size: 0.75rem;
       cursor: pointer;
     }
+
+    /* 歷史紀錄抽屜 */
+    .history-card {
+      background: #1e293b;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border-left: 4px solid #facc15;
+    }
+    .history-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9rem; margin-bottom: 6px; }
   </style>
 </head>
 <body>
 
   <h3>
-    <span>⚡ 圈選文字・自動萃取導航</span>
-    <button id="clear-all-btn" style="background:none;border:none;color:#ef4444;font-size:0.8rem;cursor:pointer;">清空清單</button>
+    <span>⚡ 台電工單導航盤</span>
+    <span id="today-date-text" style="font-size:0.85rem; color:#94a3b8;"></span>
   </h3>
 
-  <!-- 貼上文字區 -->
-  <div class="paste-card">
-    <textarea id="raw-text" placeholder="長按將圈選複製的文字貼在此處..."></textarea>
-    <div class="action-row">
-      <button id="btn-auto-paste" class="btn-paste">📋 一鍵讀取剪貼簿</button>
-      <button id="btn-parse" class="btn-parse">自動解析</button>
-    </div>
+  <!-- 1. 簡化頂部操作：一鍵讀取剪貼簿 + 清空 -->
+  <div class="top-action-bar">
+    <button id="btn-paste-clip" class="btn-paste">📋 自動貼上圈選文字並匯入</button>
+    <button id="btn-clear-today" class="btn-clear">清空今日</button>
   </div>
 
-  <!-- 當前案件視窗 -->
+  <!-- 2. 日薪記錄小列 -->
+  <div class="salary-card">
+    <div>
+      <span style="font-size:0.85rem; color:#94a3b8;">今日薪資/工數：</span>
+      <input type="text" id="daily-pay-input" class="salary-input" placeholder="例如 2500">
+    </div>
+    <button id="btn-save-log" class="btn-save-day">💾 存入歷史日薪紀錄</button>
+  </div>
+
+  <!-- 3. 當前案件視窗（含街景與導航） -->
   <div class="focus-card" id="focus-panel" style="display:none;">
     <div class="focus-header">
       <div>
@@ -199,8 +238,13 @@
     </div>
   </div>
 
-  <div class="list-title">📋 今日工單（點擊切換目的地）</div>
+  <!-- 4. 今日工單清單 -->
+  <div class="section-title">📋 今日工單（點擊切換預覽）</div>
   <div id="task-list"></div>
+
+  <!-- 5. 歷史日薪與施工紀錄 -->
+  <div class="section-title" style="margin-top: 24px;">📅 歷史出工日誌與案件回顧</div>
+  <div id="history-list"></div>
 
   <script>
     const BASE_COORDS = {
@@ -275,14 +319,20 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
+    // 資料管理
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
+    let workHistory = JSON.parse(localStorage.getItem('tpc_salary_logs') || '[]');
     let currentIndex = 0;
     let isStreetView = false;
 
-    const rawText = document.getElementById('raw-text');
-    const btnAutoPaste = document.getElementById('btn-auto-paste');
-    const btnParse = document.getElementById('btn-parse');
-    const taskList = document.getElementById('task-list');
+    // 取得今天日期字串 (YYYY-MM-DD)
+    const todayStr = new Date().toISOString().split('T')[0];
+    document.getElementById('today-date-text').innerText = todayStr;
+
+    const btnPasteClip = document.getElementById('btn-paste-clip');
+    const btnClearToday = document.getElementById('btn-clear-today');
+    const dailyPayInput = document.getElementById('daily-pay-input');
+    const btnSaveLog = document.getElementById('btn-save-log');
 
     const focusPanel = document.getElementById('focus-panel');
     const focusIndex = document.getElementById('focus-index');
@@ -294,73 +344,106 @@
     const coordsText = document.getElementById('coords-text');
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
-    const clearAllBtn = document.getElementById('clear-all-btn');
+    const taskList = document.getElementById('task-list');
+    const historyList = document.getElementById('history-list');
 
     function saveTasks() {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
     }
 
-    // 智能正則：支援包含空白的 9 碼或 11 碼台電圖號
+    function saveHistory() {
+      localStorage.setItem('tpc_salary_logs', JSON.stringify(workHistory));
+    }
+
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
 
     function parseText(content) {
       if (!content.trim()) return;
-
-      // 依換行或明顯句號切分
       const lines = content.split(/[\r\n]+/);
-      let foundCount = 0;
+      let count = 0;
 
       lines.forEach(line => {
         const matches = line.match(COORD_REGEX);
         if (matches) {
           matches.forEach(m => {
             const cleanCode = sanitizeTaipowerCode(m.replace(/\s+/g, ''));
-            // 提取同一行中的其餘文字（如地址或備註），剔除無用雜字
             let note = line.replace(m, '')
                            .replace(/施工地點|當日預計施工地點|共\d+筆|每頁\d+|目前在第\d+頁/g, '')
                            .replace(/[\s,]+/g, ' ')
                            .trim();
 
-            // 避免重複新增同一圖號
             if (!tasks.some(t => t.code === cleanCode)) {
-              tasks.push({ code: cleanCode, note: note || '施工點', done: false });
-              foundCount++;
+              tasks.push({ code: cleanCode, note: note || '施工地點', done: false });
+              count++;
             }
           });
         }
       });
 
-      if (foundCount > 0) {
+      if (count > 0) {
         saveTasks();
         renderTasks();
-        selectTask(tasks.length - foundCount);
-        rawText.value = '';
+        selectTask(tasks.length - count);
       } else {
-        alert("未在貼上的文字中偵測到台電圖號格式！");
+        alert("未在剪貼簿中找到台電圖號，請重新複製！");
       }
     }
 
-    // 一鍵讀取剪貼簿
-    btnAutoPaste.onclick = async () => {
+    // 一鍵貼上按鈕
+    btnPasteClip.onclick = async () => {
       try {
         const text = await navigator.clipboard.readText();
-        rawText.value = text;
         parseText(text);
       } catch (err) {
-        // 部分瀏覽器安全限制時，提示手動貼上
-        alert("請長按輸入框手動貼上文字，再點擊「自動解析」！");
+        const manual = prompt("請貼上複製的文字：");
+        if (manual) parseText(manual);
       }
     };
 
-    btnParse.onclick = () => {
-      parseText(rawText.value);
+    btnClearToday.onclick = () => {
+      if (confirm('確定要清空今天的案件清單嗎？')) {
+        tasks = [];
+        saveTasks();
+        renderTasks();
+      }
+    };
+
+    // 儲存日薪歷史紀錄
+    btnSaveLog.onclick = () => {
+      const pay = dailyPayInput.value.trim();
+      if (!pay) {
+        alert("請輸入今日日薪金額或工數！");
+        return;
+      }
+      if (tasks.length === 0) {
+        alert("今日尚無案件，無法存檔！");
+        return;
+      }
+
+      const logEntry = {
+        date: todayStr,
+        pay: pay,
+        tasks: [...tasks]
+      };
+
+      // 若當天已存在則更新，否則加入最前頭
+      const existIdx = workHistory.findIndex(h => h.date === todayStr);
+      if (existIdx >= 0) {
+        workHistory[existIdx] = logEntry;
+      } else {
+        workHistory.unshift(logEntry);
+      }
+
+      saveHistory();
+      renderHistory();
+      alert(`已成功記錄 ${todayStr} 日薪：${pay}，共 ${tasks.length} 件工單！`);
     };
 
     function renderTasks() {
       taskList.innerHTML = '';
       if (tasks.length === 0) {
         focusPanel.style.display = 'none';
-        taskList.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:10px;">目前尚無案件，請將手機圈選複製的文字貼在上方。</div>';
+        taskList.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:8px;">目前無案件，請複製文字後點上方貼上按鈕。</div>';
         return;
       }
 
@@ -409,14 +492,7 @@
         const wgs = twd67ToWGS84(twd67[0], twd67[1]);
         coordsText.innerText = `WGS84 座標: ${wgs.lat}, ${wgs.lng}`;
         navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
-        navBtn.style.pointerEvents = 'auto';
-        navBtn.style.opacity = '1';
         updateMap(wgs.lat, wgs.lng);
-      } else {
-        coordsText.innerText = `❌ 圖號格式錯誤`;
-        navBtn.style.pointerEvents = 'none';
-        navBtn.style.opacity = '0.5';
-        mapFrame.src = 'about:blank';
       }
 
       document.querySelectorAll('.task-item').forEach((el, i) => {
@@ -461,15 +537,43 @@
       renderTasks();
     };
 
-    clearAllBtn.onclick = () => {
-      if (confirm('確定清空所有案件？')) {
-        tasks = [];
+    // 渲染歷史日薪紀錄列表
+    function renderHistory() {
+      historyList.innerHTML = '';
+      if (workHistory.length === 0) {
+        historyList.innerHTML = '<div style="color:#64748b;font-size:0.85rem;">尚無歷史紀錄</div>';
+        return;
+      }
+
+      workHistory.forEach((h, hIdx) => {
+        const card = document.createElement('div');
+        card.className = 'history-card';
+        card.innerHTML = `
+          <div class="history-header">
+            <span>📅 ${h.date} (日薪: $${h.pay})</span>
+            <span style="color:#38bdf8;cursor:pointer;" onclick="loadHistoryToToday(${hIdx})">載入預覽 ↩</span>
+          </div>
+          <div style="font-size:0.8rem; color:#94a3b8;">
+            ${h.tasks.map(t => `${t.code} (${t.note})`).join('<br>')}
+          </div>
+        `;
+        historyList.appendChild(card);
+      });
+    }
+
+    // 點擊歷史紀錄直接載入到主畫面做街景預覽
+    window.loadHistoryToToday = (idx) => {
+      if (confirm(`是否載入 ${workHistory[idx].date} 的案件進行預覽？`)) {
+        tasks = [...workHistory[idx].tasks];
         saveTasks();
         renderTasks();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
 
+    // 啟動初始化
     renderTasks();
+    renderHistory();
   </script>
 </body>
 </html>
