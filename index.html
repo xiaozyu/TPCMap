@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <link rel="manifest" href="manifest.json">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>⚡ 台電報工巡檢導航盤</title>
-  <!-- 引入 SortableJS 順暢拖曳動畫庫 -->
+  <title>⚡ 巨擎報工巡檢導航盤</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- SortableJS 順暢拖曳動畫庫 -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <!-- Firebase 官方核心與即時資料庫套件 (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -25,7 +30,6 @@
       flex-direction: column;
     }
 
-    /* 頂部固定操作面板 */
     .top-section {
       padding: 6px 8px 3px 8px;
       flex-shrink: 0;
@@ -53,7 +57,25 @@
     .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
     .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1.2; }
 
-    /* 手動快速輸入列 (自帶 G) */
+    /* 連線狀態指示燈 */
+    .sync-status {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      padding: 0 4px 4px 0;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #eab308;
+    }
+    .status-dot.online { background: #10b981; box-shadow: 0 0 6px #10b981; }
+
+    /* 手動快速輸入列 */
     .manual-input-bar {
       display: flex;
       align-items: center;
@@ -102,13 +124,13 @@
       white-space: nowrap;
     }
 
-    /* 工單清單列表容器：直接完整展示至少 5 件 */
+    /* 5 筆高度清單容器 */
     .task-list-section {
       background: #131d31;
       border-radius: 6px;
       border: 1px solid #1e293b;
       padding: 3px 4px;
-      height: 185px; /* 精準容納 5 筆高度 */
+      height: 185px;
       overflow-y: auto;
       touch-action: pan-y;
     }
@@ -116,7 +138,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 33px; /* 緊湊且清楚高度 */
+      height: 33px;
       padding: 0 6px;
       margin-bottom: 3px;
       background: #1e293b;
@@ -134,7 +156,6 @@
       text-decoration: line-through;
     }
 
-    /* 拖曳動畫 */
     .sortable-chosen {
       background: #1d4ed8 !important;
       border-left-color: #facc15 !important;
@@ -180,7 +201,6 @@
       margin-left: 3px;
     }
 
-    /* 街景頂部導航條 */
     .nav-action-bar {
       display: flex;
       gap: 6px;
@@ -216,7 +236,6 @@
       cursor: pointer;
     }
 
-    /* 滿版街景視窗 */
     .map-container {
       position: relative;
       flex: 1;
@@ -368,13 +387,18 @@
       <button id="btn-month" class="btn-top btn-month">📅 月紀錄</button>
     </div>
 
+    <!-- 雲端同步指示 -->
+    <div class="sync-status">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-text">雲端連線中...</span>
+    </div>
+
     <div class="manual-input-bar">
       <span class="prefix-badge">G</span>
       <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
     </div>
 
-    <!-- 5 筆高度清單 -->
     <div class="task-list-section">
       <div id="task-list"></div>
     </div>
@@ -382,6 +406,7 @@
 
   <div class="nav-action-bar">
     <a id="btn-start-nav" class="btn-nav-start" target="_blank">🚗 開始導航</a>
+    <!-- 預設地圖，因此按鈕提示改為切換街景 -->
     <button id="btn-toggle-view" class="btn-toggle-view">切換街景</button>
   </div>
 
@@ -421,6 +446,31 @@
   </div>
 
   <script>
+    /* ==========================================================
+       Firebase 網址設定
+       ========================================================== */
+    const FIREBASE_DB_URL = "https://你的專案名稱-default-rtdb.firebaseio.com";
+
+    let db = null;
+    let isCloudReady = false;
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+
+    if (FIREBASE_DB_URL && !FIREBASE_DB_URL.includes("你的專案名稱")) {
+      try {
+        firebase.initializeApp({ databaseURL: FIREBASE_DB_URL });
+        db = firebase.database();
+        isCloudReady = true;
+        statusDot.classList.add('online');
+        statusText.innerText = "雲端即時連線中";
+      } catch (e) {
+        console.error("Firebase 初始化失敗:", e);
+        statusText.innerText = "本地離線模式";
+      }
+    } else {
+      statusText.innerText = "尚未設定雲端網址 (本地模式)";
+    }
+
     const BASE_COORDS = {
       'A': [90000, 2750000],  'B': [170000, 2750000], 'C': [250000, 2750000],
       'D': [90000, 2700000],  'E': [170000, 2700000], 'F': [250000, 2700000],
@@ -496,7 +546,9 @@
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
     let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
     let currentIndex = 0;
-    let isStreetView = true;
+    
+    // 【修改處】預設改為地圖模式 (false = 地圖, true = 街景)
+    let isStreetView = false;
     const todayKey = new Date().toISOString().split('T')[0];
 
     let viewYear = new Date().getFullYear();
@@ -530,12 +582,37 @@
     const btnActionSave = document.getElementById('btn-action-save');
     const btnActionDel = document.getElementById('btn-action-del');
 
-    function saveTasks() {
+    function saveTasks(syncToCloud = true) {
       localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
       if (tasks.length > 0) {
         monthLogs[todayKey] = [...tasks];
         localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
       }
+
+      if (isCloudReady && syncToCloud) {
+        db.ref('today_tasks').set(tasks);
+        db.ref(`month_logs/${todayKey}`).set(tasks);
+      }
+    }
+
+    if (isCloudReady) {
+      db.ref('today_tasks').on('value', (snapshot) => {
+        const cloudTasks = snapshot.val();
+        if (cloudTasks !== null) {
+          tasks = cloudTasks;
+          localStorage.setItem('tpc_tasks', JSON.stringify(tasks));
+          renderTasks();
+        }
+      });
+
+      db.ref('month_logs').on('value', (snapshot) => {
+        const cloudLogs = snapshot.val();
+        if (cloudLogs) {
+          monthLogs = cloudLogs;
+          localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+          if (calendarModal.style.display === 'block') renderCalendar();
+        }
+      });
     }
 
     const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
@@ -568,7 +645,7 @@
         renderTasks();
         selectTask(tasks.length - count);
       } else {
-        alert("剪貼簿中未偵測到台電圖號，請先圈選複製！");
+        alert("剪貼簿中未偵測到圖號座標，請先圈選複製！");
       }
     }
 
@@ -576,9 +653,7 @@
       let val = manualCodeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (!val) return;
 
-      if (val.startsWith('G')) {
-        val = val.substring(1);
-      }
+      if (val.startsWith('G')) val = val.substring(1);
 
       const fullCode = sanitizeTaipowerCode('G' + val);
       if (fullCode.length < 9) {
@@ -609,7 +684,7 @@
     };
 
     btnClear.onclick = () => {
-      if (confirm('確定清空今日的所有工單？')) {
+      if (confirm('確定清空今日的所有工單？（全員畫面將同步清空）')) {
         tasks = [];
         saveTasks();
         renderTasks();
@@ -664,9 +739,7 @@
         taskList.appendChild(row);
       });
 
-      if (sortableInstance) {
-        sortableInstance.destroy();
-      }
+      if (sortableInstance) sortableInstance.destroy();
 
       sortableInstance = new Sortable(taskList, {
         animation: 180,
@@ -881,6 +954,7 @@
       if (confirm(`是否將目前畫面上的 ${tasks.length} 筆案件存入 ${selectedDate}？`)) {
         monthLogs[selectedDate] = [...tasks];
         localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+        if (isCloudReady) db.ref(`month_logs/${selectedDate}`).set(tasks);
         renderCalendar();
         updateActionSheet(selectedDate);
       }
@@ -891,6 +965,7 @@
       if (confirm(`⚠️ 確定要刪除 ${selectedDate} 的所有工單紀錄嗎？（無法復原）`)) {
         delete monthLogs[selectedDate];
         localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+        if (isCloudReady) db.ref(`month_logs/${selectedDate}`).remove();
         renderCalendar();
         updateActionSheet(selectedDate);
       }
