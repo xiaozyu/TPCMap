@@ -1,6 +1,6 @@
 {
-  "name": "巨擎水電工程行",
-  "short_name": "台電導航",
+  "name": "巨擎報工導航盤",
+  "short_name": "巨擎導航",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b0f19",
