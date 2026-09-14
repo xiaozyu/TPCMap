@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>⚡ 巨擎報工巡檢導航盤</title>
+  <title>⚡ 巨擎導航</title>
   <link rel="manifest" href="manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -644,4 +644,254 @@
           <div style="display:flex;align-items:baseline;">
             <span class="drag-handle">☰</span>
             <span class="task-num-label" style="color:#38bdf8;font-weight:bold;margin-right:5px;">#${idx + 1}</span>
-            <s
+            <span class="task-title">${t.code}</span>
+            <span class="task-desc">${t.note}</span>
+          </div>
+          <div class="row-actions">
+            <button onclick="toggleDone(${idx})">${t.done ? '復原' : '完工'}</button>
+            <button style="color:#ef4444;" onclick="deleteTask(${idx})">✕</button>
+          </div>
+        `;
+
+        row.onclick = (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          selectTask(idx);
+        };
+
+        taskList.appendChild(row);
+      });
+
+      if (sortableInstance) sortableInstance.destroy();
+
+      sortableInstance = new Sortable(taskList, {
+        animation: 180,
+        delay: 150,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 3,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onStart: function() {
+          if (navigator.vibrate) navigator.vibrate(35);
+        },
+        onEnd: function(evt) {
+          const oldIdx = evt.oldIndex;
+          const newIdx = evt.newIndex;
+          if (oldIdx === newIdx) return;
+
+          const moved = tasks.splice(oldIdx, 1)[0];
+          tasks.splice(newIdx, 0, moved);
+
+          if (currentIndex === oldIdx) {
+            currentIndex = newIdx;
+          } else if (oldIdx < currentIndex && newIdx >= currentIndex) {
+            currentIndex--;
+          } else if (oldIdx > currentIndex && newIdx <= currentIndex) {
+            currentIndex++;
+          }
+
+          saveTasks();
+          document.querySelectorAll('.task-row').forEach((r, i) => {
+            r.querySelector('.task-num-label').innerText = `#${i + 1}`;
+            r.classList.toggle('active', i === currentIndex);
+          });
+        }
+      });
+
+      selectTask(currentIndex);
+    }
+
+    function selectTask(idx) {
+      if (idx < 0 || idx >= tasks.length) return;
+      currentIndex = idx;
+      const t = tasks[currentIndex];
+
+      const twd67 = taipowerToTWD67(t.code);
+      if (twd67) {
+        const wgs = twd67ToWGS84(twd67[0], twd67[1]);
+        btnStartNav.href = `https://www.google.com/maps/dir/?api=1&destination=${wgs.lat},${wgs.lng}`;
+        btnStartNav.style.opacity = '1';
+        btnStartNav.style.pointerEvents = 'auto';
+        updateMap(wgs.lat, wgs.lng);
+      } else {
+        btnStartNav.style.opacity = '0.4';
+        btnStartNav.style.pointerEvents = 'none';
+        mapFrame.src = 'about:blank';
+      }
+
+      document.querySelectorAll('.task-row').forEach((el, i) => {
+        el.classList.toggle('active', i === currentIndex);
+      });
+    }
+
+    function updateMap(lat, lng) {
+      if (isStreetView) {
+        mapFrame.src = `https://maps.google.com/maps?layer=c&cbll=${lat},${lng}&cbp=12,0,0,0,0&output=svembed`;
+      } else {
+        mapFrame.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=18&output=embed`;
+      }
+    }
+
+    btnToggleView.onclick = () => {
+      isStreetView = !isStreetView;
+      btnToggleView.innerText = isStreetView ? "切換地圖" : "切換街景";
+      const t = tasks[currentIndex];
+      if (t) {
+        const twd67 = taipowerToTWD67(t.code);
+        if (twd67) {
+          const wgs = twd67ToWGS84(twd67[0], twd67[1]);
+          updateMap(wgs.lat, wgs.lng);
+        }
+      }
+    };
+
+    window.toggleDone = (idx) => {
+      tasks[idx].done = !tasks[idx].done;
+      saveTasks();
+      renderTasks();
+    };
+
+    window.deleteTask = (idx) => {
+      tasks.splice(idx, 1);
+      if (currentIndex >= tasks.length) currentIndex = Math.max(0, tasks.length - 1);
+      saveTasks();
+      renderTasks();
+    };
+
+    function renderCalendar() {
+      calendarBody.innerHTML = '';
+      const year = viewYear;
+      const month = viewMonth;
+      calTitle.innerText = `${year} 年 ${month + 1} 月`;
+
+      ['日', '一', '二', '三', '四', '五', '六'].forEach(d => {
+        const h = document.createElement('div');
+        h.className = 'cal-weekday';
+        h.innerText = d;
+        calendarBody.appendChild(h);
+      });
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstDayIndex; i++) {
+        const empty = document.createElement('div');
+        calendarBody.appendChild(empty);
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-day';
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        if (dateStr === todayKey) cell.classList.add('today');
+        if (dateStr === selectedDate) cell.classList.add('selected');
+        
+        const dayRecords = monthLogs[dateStr] || [];
+        if (dayRecords.length > 0) {
+          cell.classList.add('has-data');
+        }
+
+        cell.innerHTML = `
+          <span>${day}</span>
+          ${dayRecords.length > 0 ? `<span class="badge-count">${dayRecords.length}件</span>` : ''}
+        `;
+
+        cell.onclick = () => {
+          selectedDate = dateStr;
+          document.querySelectorAll('.cal-day').forEach(c => c.classList.remove('selected'));
+          cell.classList.add('selected');
+          updateActionSheet(dateStr);
+        };
+
+        calendarBody.appendChild(cell);
+      }
+    }
+
+    calPrev.onclick = () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      renderCalendar();
+    };
+
+    calNext.onclick = () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderCalendar();
+    };
+
+    function updateActionSheet(dateStr) {
+      dayActionSheet.style.display = 'block';
+      sheetDateText.innerText = `📅 ${dateStr}`;
+      const records = monthLogs[dateStr] || [];
+
+      if (records.length > 0) {
+        sheetCountText.innerText = `(共 ${records.length} 件工單)`;
+        sheetSummaryText.innerHTML = records.map((t, i) => `${i + 1}. ${t.code} ${t.note}`).join('<br>');
+        btnActionLoad.disabled = false;
+        btnActionCopy.disabled = false;
+        btnActionDel.disabled = false;
+        btnActionLoad.style.opacity = '1';
+        btnActionCopy.style.opacity = '1';
+        btnActionDel.style.opacity = '1';
+      } else {
+        sheetCountText.innerText = '(尚無紀錄)';
+        sheetSummaryText.innerText = '當天沒有保存工單，可點下方按鈕存入目前案件。';
+        btnActionLoad.disabled = true;
+        btnActionCopy.disabled = true;
+        btnActionDel.disabled = true;
+        btnActionLoad.style.opacity = '0.35';
+        btnActionCopy.style.opacity = '0.35';
+        btnActionDel.style.opacity = '0.35';
+      }
+    }
+
+    btnActionLoad.onclick = () => {
+      const records = monthLogs[selectedDate];
+      if (records && records.length > 0) {
+        tasks = [...records];
+        saveTasks();
+        renderTasks();
+        calendarModal.style.display = 'none';
+      }
+    };
+
+    btnActionCopy.onclick = async () => {
+      const records = monthLogs[selectedDate];
+      if (!records || records.length === 0) return;
+
+      const text = `${selectedDate} 工單紀錄：\n` + records.map((t, idx) => `${idx + 1}. ${t.code} (${t.note})`).join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        alert(`✅ 已複製 ${selectedDate} 的工單！直接去日曆日記貼上即可。`);
+      } catch (err) {
+        prompt("請手動複製以下工單：", text);
+      }
+    };
+
+    btnActionSave.onclick = () => {
+      if (tasks.length === 0) {
+        alert("目前畫面上沒有任何案件可以存入！");
+        return;
+      }
+      if (confirm(`是否將目前畫面上的 ${tasks.length} 筆案件存入 ${selectedDate}？`)) {
+        monthLogs[selectedDate] = [...tasks];
+        localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+        renderCalendar();
+        updateActionSheet(selectedDate);
+      }
+    };
+
+    btnActionDel.onclick = () => {
+      if (!monthLogs[selectedDate]) return;
+      if (confirm(`⚠️ 確定要刪除 ${selectedDate} 的所有工單紀錄嗎？（無法復原）`)) {
+        delete monthLogs[selectedDate];
+        localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+        renderCalendar();
+        updateActionSheet(selectedDate);
+      }
+    };
+
+    renderTasks();
+  </script>
+</body>
+</html>
