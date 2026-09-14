@@ -1,30 +1,161 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e293b"/>
+    <!-- iOS Squircle Mask (Smooth Corner Radius) -->
+    <clipPath id="squircleClip">
+      <rect width="512" height="512" rx="115" ry="115" />
+    </clipPath>
+
+    <!-- Deep Void Navy Gradient -->
+    <linearGradient id="bgVoid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#08101F" />
+      <stop offset="50%" stop-color="#050B14" />
+      <stop offset="100%" stop-color="#02050A" />
     </linearGradient>
-    <linearGradient id="bolt" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fef08a"/>
-      <stop offset="100%" stop-color="#eab308"/>
+
+    <!-- Electric Cyan Glow & Edge Gradients -->
+    <linearGradient id="cyanCore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#70F8FF" />
+      <stop offset="50%" stop-color="#00F0FF" />
+      <stop offset="100%" stop-color="#008B99" />
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+
+    <linearGradient id="cyanAmbient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0" />
+      <stop offset="60%" stop-color="#00F0FF" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#00F0FF" stop-opacity="0.45" />
+    </linearGradient>
+
+    <!-- Titanium Silver Facets -->
+    <linearGradient id="titaniumLight" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="45%" stop-color="#DCE2EC" />
+      <stop offset="100%" stop-color="#8A96A8" />
+    </linearGradient>
+
+    <linearGradient id="titaniumMid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C2CCD8" />
+      <stop offset="50%" stop-color="#8592A6" />
+      <stop offset="100%" stop-color="#4B5565" />
+    </linearGradient>
+
+    <linearGradient id="titaniumDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2D3748" />
+      <stop offset="100%" stop-color="#141B26" />
+    </linearGradient>
+
+    <!-- Isometric Mesh Stroke Gradient -->
+    <linearGradient id="meshFade" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.03" />
+      <stop offset="50%" stop-color="#00F0FF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#00F0FF" stop-opacity="0.7" />
+    </linearGradient>
+
+    <!-- High-Tech Glow Filters -->
+    <filter id="cyanAura" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="24" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="needleDrop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="8" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.85" />
+      <feDropShadow dx="-2" dy="-2" stdDeviation="8" flood-color="#00F0FF" flood-opacity="0.25" />
     </filter>
   </defs>
 
-  <!-- 背景圓角矩形 -->
-  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="110" fill="none" stroke="#38bdf8" stroke-width="12" stroke-opacity="0.4"/>
+  <g clip-path="url(#squircleClip)">
+    <!-- 1. Canvas Background -->
+    <rect width="512" height="512" fill="url(#bgVoid)" />
 
-  <!-- 科技定位網格與圓環 -->
-  <circle cx="256" cy="256" r="170" fill="none" stroke="#334155" stroke-width="6" stroke-dasharray="16 12"/>
-  <circle cx="256" cy="256" r="120" fill="#0b0f19" fill-opacity="0.6"/>
+    <!-- 2. Ambient Energy Flare (Upper Right Origin) -->
+    <circle cx="390" cy="110" r="220" fill="url(#cyanAmbient)" filter="url(#cyanAura)" />
 
-  <!-- 地圖定位水滴 Pin (帶投影) -->
-  <path d="M256 90 C180 90, 125 145, 125 220 C125 310, 256 425, 256 425 C256 425, 387 310, 387 220 C387 145, 332 90, 256 90 Z" fill="#0284c7" filter="url(#shadow)"/>
-  <circle cx="256" cy="215" r="75" fill="#0f172a"/>
+    <!-- 3. Isometric Navigation Mesh (30-degree isometric grid planes) -->
+    <g stroke="url(#meshFade)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+      <!-- Perspective Baseline Grid -->
+      <path d="M-40 376 L256 547 L552 376" fill="none" />
+      <path d="M-40 326 L256 497 L552 326" fill="none" />
+      <path d="M-40 276 L256 447 L552 276" fill="none" opacity="0.6" />
+      <path d="M-40 226 L256 397 L552 226" fill="none" opacity="0.3" />
 
-  <!-- 核心電力閃電標誌 -->
-  <polygon points="270,140 195,235 245,235 230,300 315,195 265,195" fill="url(#bolt)"/>
+      <!-- Isometric Transverse Axes -->
+      <path d="M80 445 L416 251" fill="none" />
+      <path d="M168 496 L504 302" fill="none" />
+      <path d="M0 350 L336 156" fill="none" opacity="0.5" />
+      <path d="M432 445 L96 251" fill="none" />
+      <path d="M344 496 L8 302" fill="none" />
+      <path d="M512 350 L176 156" fill="none" opacity="0.5" />
+
+      <!-- High-Tech Target Sub-Nodes -->
+      <circle cx="256" cy="447" r="3" fill="#00F0FF" opacity="0.6" />
+      <circle cx="336" cy="401" r="2.5" fill="#00F0FF" opacity="0.8" />
+      <circle cx="176" cy="401" r="2.5" fill="#00F0FF" opacity="0.4" />
+      <circle cx="416" cy="355" r="3" fill="#00F0FF" opacity="0.9" />
+      <circle cx="256" cy="309" r="2" fill="#00F0FF" opacity="0.5" />
+    </g>
+
+    <!-- 4. Monolithic Horizon Wedge / Intersecting Ground Foundation -->
+    <polygon points="120,380 256,458 392,380 256,302" 
+             fill="url(#titaniumDark)" 
+             stroke="#00F0FF" 
+             stroke-width="1" 
+             stroke-opacity="0.3" />
+
+    <!-- 5. Massive Monolithic Needle (Precision Geometric Polygons) -->
+    <g filter="url(#needleDrop)">
+      <!-- Left Titanium Dark Side / Shadow Keel -->
+      <polygon points="256,48 104,360 256,310" 
+               fill="url(#titaniumMid)" />
+
+      <!-- Underside Aerodynamic Notch Facet -->
+      <polygon points="256,310 104,360 148,376 256,336" 
+               fill="url(#titaniumDark)" />
+
+      <!-- Right Monolith Chiseled Light Face -->
+      <polygon points="256,48 256,310 408,360" 
+               fill="url(#titaniumLight)" />
+
+      <!-- Underside Reflection Wedge -->
+      <polygon points="256,310 256,336 364,376 408,360" 
+               fill="url(#titaniumMid)" />
+
+      <!-- Electric Cyan Kinetic Core (Monolithic Energy Spine) -->
+      <polygon points="256,48 244,312 256,326 268,312" 
+               fill="url(#cyanCore)" />
+
+      <!-- Intersecting Aerodynamic Fin (Precision Slit) -->
+      <polygon points="256,120 286,280 256,260 226,280" 
+               fill="#050B14" 
+               opacity="0.9" />
+    </g>
+
+    <!-- 6. Monolithic Apex Accent & Coordinate Beacon -->
+    <g filter="url(#cyanAura)">
+      <!-- Apex Pure Energy Fang -->
+      <polygon points="256,48 249,110 256,130 263,110" fill="#FFFFFF" />
+      <!-- Top Target Dot Indicator -->
+      <circle cx="256" cy="48" r="4" fill="#00F0FF" />
+    </g>
+
+    <!-- 7. Geometric Vector Horizon Rings (Negative Space Anchors) -->
+    <circle cx="256" cy="256" r="180" 
+            fill="none" 
+            stroke="#00F0FF" 
+            stroke-width="1" 
+            stroke-dasharray="2 12" 
+            opacity="0.25" />
+
+    <circle cx="256" cy="256" r="140" 
+            fill="none" 
+            stroke="#8A96A8" 
+            stroke-width="1" 
+            stroke-opacity="0.15" />
+
+    <!-- 8. Subtle Inner Border Rim for iOS Specular Edge Reflection -->
+    <rect width="512" height="512" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="1.5" 
+          stroke-opacity="0.08" 
+          rx="115" ry="115" />
+  </g>
 </svg>
