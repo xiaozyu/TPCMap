@@ -448,14 +448,23 @@
     function taipowerToTWD67(code) {
       code = sanitizeTaipowerCode(code);
       if (code.length < 9) return null;
-      const zone = code[0];
+      const zone = code[0].toUpperCase();
       if (!BASE_COORDS[zone]) return null;
       const [baseX, baseY] = BASE_COORDS[zone];
 
       const x_800 = parseInt(code.substring(1, 3), 10);
       const y_500 = parseInt(code.substring(3, 5), 10);
-      const subX = code[5].charCodeAt(0) - 65;
-      const subY = code[6].charCodeAt(0) - 65;
+
+      // 支援 S 區塊與防呆校正
+      let subXChar = code[5].toUpperCase();
+      if (subXChar === 'S') subXChar = 'B';
+      if (subXChar > 'H') subXChar = 'A';
+
+      let subYChar = code[6].toUpperCase();
+      if (subYChar > 'E') subYChar = 'A';
+
+      const subX = subXChar.charCodeAt(0) - 65;
+      const subY = subYChar.charCodeAt(0) - 65;
 
       let offsetX = 0, offsetY = 0;
       if (code.length >= 11) {
@@ -495,8 +504,6 @@
     let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
     let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
     let currentIndex = 0;
-    
-    // 預設地圖俯瞰視角
     let isStreetView = false;
     const todayKey = new Date().toISOString().split('T')[0];
 
@@ -539,24 +546,29 @@
       }
     }
 
-    const COORD_REGEX = /([A-HJ-NP-W][0-9]{4}\s*[A-H][A-E]\s*(?:[0-9]{4}|[0-9]{2}))/gi;
+    // 寬鬆比對：支援大小寫、任意 2 碼英文 (包含 sa, ha)
+    const COORD_REGEX = /[A-Za-z]?[0-9]{4}\s*[A-Za-z]{2}\s*(?:[0-9]{4}|[0-9]{2})/gi;
 
     function parseText(content) {
-      if (!content.trim()) return;
+      if (!content || !content.trim()) return;
+
       const lines = content.split(/[\r\n]+/);
       let count = 0;
 
       lines.forEach(line => {
-        const matches = line.match(COORD_REGEX);
+        // 過濾系統頁頭雜訊
+        if (line.includes("每頁") || line.includes("施工地點") || line.includes("當日") || line.includes("領班")) return;
+
+        let matches = line.match(COORD_REGEX);
         if (matches) {
           matches.forEach(m => {
-            const cleanCode = sanitizeTaipowerCode(m.replace(/\s+/g, ''));
-            let note = line.replace(m, '')
-                           .replace(/施工地點|當日預計施工地點|共\d+筆|每頁\d+|目前在第\d+頁/g, '')
-                           .replace(/[\s,]+/g, ' ')
-                           .trim();
+            let rawCode = m.replace(/\s+/g, '').toUpperCase();
+            if (/^[0-9]/.test(rawCode)) rawCode = 'G' + rawCode;
 
-            if (!tasks.some(t => t.code === cleanCode)) {
+            const cleanCode = sanitizeTaipowerCode(rawCode);
+            let note = line.replace(m, '').replace(/[\s,]+/g, ' ').trim();
+
+            if (cleanCode && !tasks.some(t => t.code === cleanCode)) {
               tasks.push({ code: cleanCode, note: note || '施工地點', done: false });
               count++;
             }
@@ -568,8 +580,9 @@
         saveTasks();
         renderTasks();
         selectTask(tasks.length - count);
+        alert(`✅ 成功匯入 ${count} 筆案件！`);
       } else {
-        alert("剪貼簿中未偵測到圖號座標，請先圈選複製！");
+        alert("未偵測到圖號，請確認圈選內容！");
       }
     }
 
@@ -600,12 +613,49 @@
     btnImport.onclick = async () => {
       try {
         const text = await navigator.clipboard.readText();
-        parseText(text);
+        if (text && text.trim()) {
+          parseText(text);
+          return;
+        }
       } catch (err) {
-        const manual = prompt("請直接貼上文字：");
-        if (manual) parseText(manual);
+        console.warn("無法直接讀取剪貼簿，改用多行輸入彈窗:", err);
       }
+      showMultilineInputModal();
     };
+
+    function showMultilineInputModal() {
+      let modal = document.getElementById('manual-paste-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'manual-paste-modal';
+        modal.style.cssText = `
+          position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+          z-index: 100; display: flex; align-items: center; justify-content: center;
+          padding: 16px; backdrop-filter: blur(4px);
+        `;
+        modal.innerHTML = `
+          <div style="background: #1e293b; border: 1px solid #475569; border-radius: 12px; width: 100%; max-width: 480px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-weight: bold; color: #38bdf8; font-size: 1rem;">📋 貼上派工單文字 (支援多行)</div>
+            <textarea id="paste-textarea" style="width: 100%; height: 160px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #facc15; font-family: monospace; font-size: 0.9rem; padding: 8px; resize: none; outline: none;" placeholder="把整段圈選的文字貼在此處..."></textarea>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <button id="btn-cancel-paste" style="background: #475569; border: none; color: #fff; padding: 8px 14px; border-radius: 6px; font-weight: bold;">取消</button>
+              <button id="btn-confirm-paste" style="background: #2563eb; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; font-weight: bold;">解析匯入</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('btn-cancel-paste').onclick = () => { modal.style.display = 'none'; };
+        document.getElementById('btn-confirm-paste').onclick = () => {
+          const val = document.getElementById('paste-textarea').value;
+          modal.style.display = 'none';
+          document.getElementById('paste-textarea').value = '';
+          parseText(val);
+        };
+      }
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('paste-textarea').focus(), 100);
+    }
 
     btnClear.onclick = () => {
       if (confirm('確定清空今日的所有工單？')) {
