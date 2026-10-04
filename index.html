@@ -11,7 +11,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- SortableJS 順暢拖曳動畫庫 -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
   <style>
@@ -56,7 +55,6 @@
     .btn-clear { background: #dc2626; border-color: #ef4444; flex: 1; }
     .btn-month { background: #0284c7; border-color: #38bdf8; flex: 1.2; }
 
-    /* 手動快速輸入列 */
     .manual-input-bar {
       display: flex;
       align-items: center;
@@ -76,6 +74,8 @@
       padding: 2px 8px;
       border-radius: 4px;
       user-select: none;
+      min-width: 36px;
+      text-align: center;
     }
     .manual-input {
       flex: 1;
@@ -105,7 +105,6 @@
       white-space: nowrap;
     }
 
-    /* 5 筆高度清單容器 */
     .task-list-section {
       background: #131d31;
       border-radius: 6px;
@@ -233,7 +232,6 @@
       display: block;
     }
 
-    /* 月曆 Modal */
     #calendar-modal {
       position: fixed;
       inset: 0;
@@ -369,8 +367,8 @@
     </div>
 
     <div class="manual-input-bar">
-      <span class="prefix-badge">G</span>
-      <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入圖號 (如 3850HE5330)" autocomplete="off" autocorrect="off" spellcheck="false">
+      <span id="prefix-badge" class="prefix-badge">G</span>
+      <input type="text" id="manual-code-input" class="manual-input" placeholder="輸入圖號 (如 3850HE5330 或 F4362AC13)" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btn-manual-add" class="btn-manual-add">＋新增</button>
     </div>
 
@@ -455,7 +453,6 @@
       const x_800 = parseInt(code.substring(1, 3), 10);
       const y_500 = parseInt(code.substring(3, 5), 10);
 
-      // 支援 S 區塊與防呆校正
       let subXChar = code[5].toUpperCase();
       if (subXChar === 'S') subXChar = 'B';
       if (subXChar > 'H') subXChar = 'A';
@@ -501,7 +498,6 @@
       return { lat: (latRad * 180 / Math.PI).toFixed(6), lng: (lonRad * 180 / Math.PI).toFixed(6) };
     }
 
-    // 自動反查道路名稱函式
     async function fetchRoadName(lat, lng) {
       try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
@@ -515,11 +511,28 @@
       }
     }
 
-    let tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
+    const todayKey = new Date().toISOString().split('T')[0];
     let monthLogs = JSON.parse(localStorage.getItem('tpc_month_logs') || '{}');
+    
+    let lastActiveDate = localStorage.getItem('tpc_last_active_date');
+    let tasks = [];
+
+    if (lastActiveDate === todayKey) {
+      tasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
+    } else {
+      let oldTasks = JSON.parse(localStorage.getItem('tpc_tasks') || '[]');
+      if (oldTasks.length > 0 && lastActiveDate) {
+        monthLogs[lastActiveDate] = [...oldTasks];
+        localStorage.setItem('tpc_month_logs', JSON.stringify(monthLogs));
+      }
+      tasks = [];
+      localStorage.setItem('tpc_tasks', JSON.stringify([]));
+    }
+
+    localStorage.setItem('tpc_last_active_date', todayKey);
+
     let currentIndex = 0;
     let isStreetView = false;
-    const todayKey = new Date().toISOString().split('T')[0];
 
     let viewYear = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
@@ -535,6 +548,18 @@
 
     const manualCodeInput = document.getElementById('manual-code-input');
     const btnManualAdd = document.getElementById('btn-manual-add');
+    const prefixBadge = document.getElementById('prefix-badge');
+
+    // 動態監聽輸入，如果開頭打了英文字母，前綴標籤跟著變動
+    manualCodeInput.addEventListener('input', () => {
+      let val = manualCodeInput.value.trim().toUpperCase();
+      if (/^[A-Z]/.test(val)) {
+        prefixBadge.innerText = val[0];
+        manualCodeInput.value = val.substring(1); // 區塊字母抽出來顯示在標籤上
+      } else if (!val) {
+        prefixBadge.innerText = 'G'; // 沒輸入時預設 G
+      }
+    });
 
     const calendarModal = document.getElementById('calendar-modal');
     const btnCloseModal = document.getElementById('btn-close-modal');
@@ -575,7 +600,10 @@
         if (matches) {
           matches.forEach(m => {
             let rawCode = m.replace(/\s+/g, '').toUpperCase();
-            if (/^[0-9]/.test(rawCode)) rawCode = 'G' + rawCode;
+            // 如果開頭是數字，才預設補上 G；如果是英文開頭（如 F43...），則保留原本的英文區塊代號
+            if (/^[0-9]/.test(rawCode)) {
+              rawCode = 'G' + rawCode;
+            }
 
             const cleanCode = sanitizeTaipowerCode(rawCode);
             let note = line.replace(m, '').replace(/[\s,]+/g, ' ').trim();
@@ -594,7 +622,6 @@
         renderTasks();
         selectTask(startIndex);
 
-        // 背景非同步自動補齊路名
         newTasks.forEach(async (taskItem) => {
           const twd67 = taipowerToTWD67(taskItem.code);
           if (twd67) {
@@ -614,9 +641,10 @@
       let val = manualCodeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (!val) return;
 
-      if (val.startsWith('G')) val = val.substring(1);
-
-      const fullCode = sanitizeTaipowerCode('G' + val);
+      // 取得目前標籤上的區塊字母（預設為 G，若使用者改過就是 F 等）
+      let currentPrefix = prefixBadge.innerText.toUpperCase();
+      
+      const fullCode = sanitizeTaipowerCode(currentPrefix + val);
       if (fullCode.length < 9) return;
 
       const newTask = { code: fullCode, note: '查詢路名中...', done: false };
@@ -624,9 +652,11 @@
       saveTasks();
       renderTasks();
       selectTask(tasks.length - 1);
+      
+      // 清空輸入並將標籤重設回 G
       manualCodeInput.value = '';
+      prefixBadge.innerText = 'G';
 
-      // 自動補齊路名
       const twd67 = taipowerToTWD67(fullCode);
       if (twd67) {
         const wgs = twd67ToWGS84(twd67[0], twd67[1]);
